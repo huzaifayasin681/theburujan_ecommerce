@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
+import { toast } from '@/components/ui/toast';
 import { Plus, Download, Upload, AlertCircle, Loader2, ArrowRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -43,8 +44,9 @@ export function AdminResource({ section }: { section: string }) {
       const data = await response.json();
       setReport(data);
       queryClient.invalidateQueries({ queryKey: ['admin', section] });
+      toast.success('Import completed successfully');
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Upload failed');
+      toast.error('Import failed', err instanceof Error ? err.message : 'Upload failed');
     } finally {
       setBusy(false);
       e.target.value = '';

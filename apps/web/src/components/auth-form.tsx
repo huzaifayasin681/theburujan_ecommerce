@@ -1,9 +1,11 @@
 'use client';
+
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { toast } from '@/components/ui/toast';
 import { Loader2, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
 
@@ -16,18 +18,33 @@ export function AuthForm({ mode }: { mode: 'login' | 'register' }) {
     setBusy(true);
     setError('');
     const body = Object.fromEntries(formData);
-    
+
     try {
-      await api(`/auth/${mode}`, {
+      const res = await api<{ expiresIn?: number; roles?: string[] }>(`/auth/${mode}`, {
         method: 'POST',
-        body: JSON.stringify(body)
+        body: JSON.stringify(body),
       });
-      
-      if (mode === 'register') { router.push(`/verify-email?email=${encodeURIComponent(String(body.email))}`); return; }
-      router.push('/account');
-      router.refresh();
+
+      if (mode === 'register') {
+        toast.success('Registration successful!', 'Please check your email to verify your account.');
+        router.push(`/verify-email?email=${encodeURIComponent(String(body.email))}`);
+        return;
+      }
+
+      const roles = res?.roles ?? [];
+      const isAdmin = roles.some((r) => ['ADMIN', 'SUPER_ADMIN'].includes(r));
+
+      if (isAdmin) {
+        toast.success('Welcome back, Administrator!', 'Redirecting to your Admin Dashboard...');
+        window.location.href = '/admin';
+      } else {
+        toast.success('Welcome back!', 'Signed in successfully.');
+        window.location.href = '/account';
+      }
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Authentication failed');
+      const msg = e instanceof Error ? e.message : 'Authentication failed';
+      setError(msg);
+      toast.error('Authentication failed', msg);
     } finally {
       setBusy(false);
     }

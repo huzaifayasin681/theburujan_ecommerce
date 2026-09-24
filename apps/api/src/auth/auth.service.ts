@@ -9,7 +9,7 @@ import { newTotpSecret, verifyTotp } from './totp';
 import { JobsService } from '../jobs/jobs.service';
 
 type ClientInfo = { ip?: string; userAgent?: string };
-type TokenPair = { accessToken: string; refreshToken: string; expiresIn: number; userId:string };
+type TokenPair = { accessToken: string; refreshToken: string; expiresIn: number; userId: string; roles?: string[] };
 const tokenHash = (token: string) => createHash('sha256').update(token).digest('hex');
 
 @Injectable()
@@ -31,11 +31,25 @@ export class AuthService {
   }
 
   async login(input: LoginDto, client: ClientInfo): Promise<TokenPair> {
-    const user = await this.prisma.user.findUnique({ where: { email: input.email.trim().toLowerCase() }, select: { id: true, email: true, passwordHash: true, status: true, emailVerifiedAt: true, twoFactorEnabled:true, twoFactorSecret:true } });
+    const user = await this.prisma.user.findUnique({
+      where: { email: input.email.trim().toLowerCase() },
+      select: {
+        id: true,
+        email: true,
+        passwordHash: true,
+        status: true,
+        emailVerifiedAt: true,
+        twoFactorEnabled: true,
+        twoFactorSecret: true,
+        roles: { select: { role: { select: { name: true } } } },
+      },
+    });
     if (!user || !(await argon2.verify(user.passwordHash, input.password)) || user.status !== 'ACTIVE') throw new UnauthorizedException({ code: 'INVALID_CREDENTIALS', message: 'Email or password is incorrect' });
     if (!user.emailVerifiedAt) throw new UnauthorizedException({ code: 'EMAIL_NOT_VERIFIED', message: 'Verify your email address before signing in' });
     if(user.twoFactorEnabled){if(!input.twoFactorCode)throw new UnauthorizedException({code:'TWO_FACTOR_REQUIRED',message:'A two-factor code is required'});let valid=user.twoFactorSecret?verifyTotp(user.twoFactorSecret,input.twoFactorCode):false;if(!valid){const hash=tokenHash(input.twoFactorCode.toUpperCase());const recovery=await this.prisma.twoFactorRecoveryCode.findFirst({where:{userId:user.id,codeHash:hash,usedAt:null}});if(recovery){valid=true;await this.prisma.twoFactorRecoveryCode.update({where:{id:recovery.id},data:{usedAt:new Date()}})}}if(!valid)throw new UnauthorizedException({code:'TWO_FACTOR_INVALID',message:'Two-factor code is invalid'});}
-    return this.createSession(user.id, user.email, client);
+    const session = await this.createSession(user.id, user.email, client);
+    const roles = user.roles.map(({ role }) => role.name);
+    return { ...session, roles };
   }
 
   async refresh(raw: string, client: ClientInfo): Promise<TokenPair> {

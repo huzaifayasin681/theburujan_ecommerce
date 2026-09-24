@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { api, ApiClientError } from '@/lib/api';
 import { Button } from '@/components/ui/button';
+import { toast } from '@/components/ui/toast';
 import { Loader2, ShoppingBag, Check, ShieldCheck, Truck } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -59,11 +60,14 @@ export function AddToCart({
         }
       }
       setAdded(true);
+      toast.success('Added to Bag', 'Item successfully added to your shopping bag.');
       setTimeout(() => {
         router.push('/cart');
       }, 400);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Could not add item to cart');
+      const msg = cause instanceof Error ? cause.message : 'Could not add item to cart';
+      setError(msg);
+      toast.error('Unable to add item', msg);
     } finally {
       setBusy(false);
     }

@@ -2,6 +2,8 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, uploadAvatar } from '@/lib/api';
+import { toast } from '@/components/ui/toast';
+import { Loader2 } from 'lucide-react';
 
 type Profile = {
   id: string;
@@ -31,20 +33,35 @@ export function AccountProfile() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['account', 'profile'] });
       setErrorMsg('');
-      alert('Profile updated successfully');
+      toast.success('Profile updated successfully');
     },
     onError: (err: Error) => {
       setErrorMsg(err.message);
+      toast.error('Update failed', err.message);
     },
   });
 
   const deleteAccount = useMutation({
     mutationFn: () => api('/account/delete', { method: 'POST' }),
     onSuccess: () => {
+      toast.info('Account deleted');
       window.location.href = '/';
     },
+    onError: (err: Error) => {
+      toast.error('Deletion failed', err.message);
+    },
   });
-  const avatar = useMutation({ mutationFn: uploadAvatar, onSuccess: () => queryClient.invalidateQueries({ queryKey: ['account', 'profile'] }), onError: (err: Error) => setErrorMsg(err.message) });
+  const avatar = useMutation({
+    mutationFn: uploadAvatar,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['account', 'profile'] });
+      toast.success('Avatar updated successfully');
+    },
+    onError: (err: Error) => {
+      setErrorMsg(err.message);
+      toast.error('Avatar upload failed', err.message);
+    },
+  });
 
   if (isLoading) return <p>Loading profile…</p>;
   if (error) return <p className="text-red-700">{error.message}</p>;
@@ -75,7 +92,8 @@ export function AccountProfile() {
         
         {errorMsg && <p className="text-red-700 text-sm">{errorMsg}</p>}
         
-        <button className="button w-fit mt-2" disabled={mutation.isPending}>
+        <button className="button w-fit mt-2 inline-flex items-center gap-2" disabled={mutation.isPending}>
+          {mutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
           {mutation.isPending ? 'Saving...' : 'Update profile'}
         </button>
       </form>

@@ -11,6 +11,7 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { toast } from '@/components/ui/toast';
 import { api, uploadAdminMedia } from '@/lib/api';
 
 const money = /^\d+(\.\d{1,4})?$/;
@@ -26,7 +27,8 @@ const formSchema = z.object({
 type FormValues = z.infer<typeof formSchema>;
 type Category = { id: string; name: string; parentId: string | null };
 type Brand = { id: string; name: string };
-type TaxData = { classes: { id: string; name: string }[] };
+type TaxClassItem = { id: string; name: string };
+type TaxData = TaxClassItem[] | { classes: TaxClassItem[] };
 type ImageItem = { mediaId: string; url: string; altText: string; featured: boolean };
 type AttributeItem = { name: string; values: string };
 type VariantItem = { id?: string; key: string; attributes: Record<string, string>; sku: string; price: string; salePrice: string; stock: number; lowStockThreshold: number; weightGrams?: number | undefined; active: boolean };
@@ -59,6 +61,11 @@ export function ProductAdminForm({ product }: { product?: EditableProduct }) {
   const { data: categories = [] } = useQuery({ queryKey: ['admin-categories'], queryFn: () => api<Category[]>('/admin/categories') });
   const { data: brands = [] } = useQuery({ queryKey: ['admin-brands'], queryFn: () => api<Brand[]>('/admin/brands') });
   const { data: taxes } = useQuery({ queryKey: ['admin-taxes'], queryFn: () => api<TaxData>('/admin/taxes') });
+
+  const safeCategories = Array.isArray(categories) ? categories : [];
+  const safeBrands = Array.isArray(brands) ? brands : [];
+  const taxClasses: TaxClassItem[] = Array.isArray(taxes) ? taxes : (taxes?.classes ?? []);
+
   const defaults = useMemo<FormValues>(() => ({
     name: product?.name ?? '', slug: product?.slug ?? '', sku: product?.sku ?? '', shortDescription: product?.shortDescription ?? '', description: product?.description ?? '', richDescription: product?.richDescription ?? '',
     basePrice: product?.basePrice ?? '', salePrice: product?.salePrice ?? '', costPrice: product?.costPrice ?? '', status: product?.status ?? 'DRAFT', visibility: product?.visibility ?? 'PUBLIC', brandId: product?.brandId ?? '', taxClassId: product?.taxClassId ?? '',
@@ -74,7 +81,22 @@ export function ProductAdminForm({ product }: { product?: EditableProduct }) {
   function changeAttribute(index: number, patch: Partial<AttributeItem>) { const next = attributes.map((item, position) => position === index ? { ...item, ...patch } : item); setAttributes(next); rebuildVariants(next); }
   function removeAttribute(index: number) { const next = attributes.filter((_, position) => position !== index); setAttributes(next); rebuildVariants(next); }
   function changeVariant(index: number, patch: Partial<VariantItem>) { setVariants((items) => items.map((item, position) => position === index ? { ...item, ...patch } : item)); }
-  async function upload(files: FileList | null) { if (!files?.length) return; setUploading(true); setError(''); try { const uploaded = await Promise.all(Array.from(files).map(uploadAdminMedia)); setImages((current) => [...current, ...uploaded.map((item, index) => ({ mediaId: item.id, url: item.url, altText: item.altText ?? '', featured: current.length === 0 && index === 0 }))]); } catch (cause) { setError(cause instanceof Error ? cause.message : 'Images could not be uploaded'); } finally { setUploading(false); } }
+  async function upload(files: FileList | null) {
+    if (!files?.length) return;
+    setUploading(true);
+    setError('');
+    try {
+      const uploaded = await Promise.all(Array.from(files).map(uploadAdminMedia));
+      setImages((current) => [...current, ...uploaded.map((item, index) => ({ mediaId: item.id, url: item.url, altText: item.altText ?? '', featured: current.length === 0 && index === 0 }))]);
+      toast.success('Images uploaded successfully');
+    } catch (cause) {
+      const msg = cause instanceof Error ? cause.message : 'Images could not be uploaded';
+      setError(msg);
+      toast.error('Image upload failed', msg);
+    } finally {
+      setUploading(false);
+    }
+  }
   const submit = handleSubmit(async (values) => {
     setBusy(true); setError('');
     try {
@@ -87,12 +109,19 @@ export function ProductAdminForm({ product }: { product?: EditableProduct }) {
       };
       delete (payload as { tagsText?: string }).tagsText;
       const result = await api<{ id: string }>(product ? `/admin/products/${product.id}` : '/admin/products', { method: product ? 'PATCH' : 'POST', body: JSON.stringify(payload) });
+      toast.success(product ? 'Product updated successfully' : 'Product created successfully');
       router.push(`/admin/products/${result.id}`);
-    } catch (cause) { setError(cause instanceof Error ? cause.message : 'Product could not be saved'); } finally { setBusy(false); }
+    } catch (cause) {
+      const msg = cause instanceof Error ? cause.message : 'Product could not be saved';
+      setError(msg);
+      toast.error('Save failed', msg);
+    } finally {
+      setBusy(false);
+    }
   });
 
   return <form onSubmit={submit} className="relative pb-24">
-    <div className="sticky top-0 z-40 -mx-6 mb-8 flex items-center justify-between border-b border-border bg-background/90 px-6 py-4 backdrop-blur-md md:-mx-8 md:px-8"><div className="flex items-center gap-4"><Button asChild variant="outline" size="icon"><Link href="/admin/products" aria-label="Back to products"><ArrowLeft className="h-4 w-4"/></Link></Button><h2 className="text-xl font-bold">{product ? 'Edit product' : 'Create product'}</h2></div><Button type="submit" disabled={busy || uploading}>{busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Save className="mr-2 h-4 w-4"/>}Save</Button></div>
+    <div className="sticky top-0 z-40 -mx-6 mb-8 flex items-center justify-between border-b border-border bg-background/90 px-6 py-4 backdrop-blur-md md:-mx-8 md:px-8"><div className="flex items-center gap-4"><Button asChild variant="outline" size="icon"><Link href="/admin/products" aria-label="Back to products"><ArrowLeft className="h-4 w-4"/></Link></Button><h2 className="text-xl font-bold">{product ? 'Edit product' : 'Create product'}</h2></div><Button type="submit" disabled={busy || uploading}>{busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Save className="mr-2 h-4 w-4"/>}{busy ? 'Saving...' : 'Save'}</Button></div>
     {error && <div className="mb-6 flex gap-3 rounded-lg bg-destructive/10 p-4 text-sm text-destructive"><AlertCircle className="h-5 w-5"/><p>{error}</p></div>}
     {Object.keys(errors).length > 0 && <div className="mb-6 rounded-lg bg-destructive/10 p-4 text-sm text-destructive">Check the highlighted fields and monetary formats.</div>}
     <div className="grid gap-8 xl:grid-cols-[1fr_340px]"><div className="space-y-8">
@@ -102,7 +131,7 @@ export function ProductAdminForm({ product }: { product?: EditableProduct }) {
       <VariantEditor attributes={attributes} variants={variants} onAdd={() => setAttributes((items) => [...items, { name: '', values: '' }])} onAttribute={changeAttribute} onRemoveAttribute={removeAttribute} onVariant={changeVariant}/>
     </div><aside className="space-y-8">
       <section className="card grid gap-4 p-6"><h3 className="font-bold">Publishing</h3><label>Status<select className={fieldClass} {...register('status')}><option>DRAFT</option><option>ACTIVE</option><option>INACTIVE</option><option>ARCHIVED</option></select></label><label>Visibility<select className={fieldClass} {...register('visibility')}><option>PUBLIC</option><option>HIDDEN</option></select></label>{!product && attributes.length === 0 && <label>Initial stock<Input type="number" min="0" {...register('initialStock')}/></label>}</section>
-      <section className="card grid gap-4 p-6"><h3 className="font-bold">Organization</h3><label>Brand<select className={fieldClass} {...register('brandId')}><option value="">No brand</option>{brands.map((brand) => <option value={brand.id} key={brand.id}>{brand.name}</option>)}</select></label><label>Tax class<select className={fieldClass} {...register('taxClassId')}><option value="">No tax class</option>{taxes?.classes.map((taxClass) => <option value={taxClass.id} key={taxClass.id}>{taxClass.name}</option>)}</select></label><fieldset><legend>Categories</legend><div className="mt-2 max-h-52 space-y-2 overflow-auto rounded border p-3">{categories.map((category) => <label className="flex gap-2 text-sm" key={category.id}><input type="checkbox" checked={categoryIds.includes(category.id)} onChange={(event) => setCategoryIds((ids) => event.target.checked ? [...ids, category.id] : ids.filter((id) => id !== category.id))}/>{category.name}</label>)}</div></fieldset><label>Tags<Input {...register('tagsText')} placeholder="new, summer, cotton"/></label></section>
+      <section className="card grid gap-4 p-6"><h3 className="font-bold">Organization</h3><label>Brand<select className={fieldClass} {...register('brandId')}><option value="">No brand</option>{safeBrands.map((brand) => <option value={brand.id} key={brand.id}>{brand.name}</option>)}</select></label><label>Tax class<select className={fieldClass} {...register('taxClassId')}><option value="">No tax class</option>{taxClasses.map((taxClass) => <option value={taxClass.id} key={taxClass.id}>{taxClass.name}</option>)}</select></label><fieldset><legend>Categories</legend><div className="mt-2 max-h-52 space-y-2 overflow-auto rounded border p-3">{safeCategories.map((category) => <label className="flex gap-2 text-sm" key={category.id}><input type="checkbox" checked={categoryIds.includes(category.id)} onChange={(event) => setCategoryIds((ids) => event.target.checked ? [...ids, category.id] : ids.filter((id) => id !== category.id))}/>{category.name}</label>)}</div></fieldset><label>Tags<Input {...register('tagsText')} placeholder="new, summer, cotton"/></label></section>
       <section className="card grid gap-4 p-6"><h3 className="font-bold">Search metadata</h3><label>SEO title<Input {...register('seoTitle')} maxLength={70}/></label><label>SEO description<textarea className={fieldClass} {...register('seoDescription')} maxLength={170}/></label></section>
     </aside></div>
   </form>;

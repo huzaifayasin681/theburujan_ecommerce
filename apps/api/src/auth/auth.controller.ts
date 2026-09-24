@@ -16,7 +16,11 @@ export class AuthController {
   @Public() @Post('register') @Throttle({ default: { limit: 5, ttl: 60_000 } }) register(@Body() body: RegisterDto) { return this.auth.register(body); }
   @Public() @Post('login') @HttpCode(200) @Throttle({ default: { limit: 8, ttl: 60_000 } })
   async login(@Body() body: LoginDto, @Ip() ip: string, @Req() req: Request, @Res({ passthrough: true }) res: Response) {
-    const tokens = await this.auth.login(body, { ip, userAgent: req.get('user-agent') });await this.cart.mergeGuest(tokens.userId,(req.cookies as Record<string,string>|undefined)?.guest_cart); this.setCookies(res, tokens);res.clearCookie('guest_cart',{path:'/'}); return { expiresIn: tokens.expiresIn };
+    const tokens = await this.auth.login(body, { ip, userAgent: req.get('user-agent') });
+    await this.cart.mergeGuest(tokens.userId, (req.cookies as Record<string, string> | undefined)?.guest_cart);
+    this.setCookies(res, tokens);
+    res.clearCookie('guest_cart', { path: '/' });
+    return { expiresIn: tokens.expiresIn, roles: tokens.roles ?? [] };
   }
   @Public() @Post('refresh') @HttpCode(200)
   async refresh(@Req() req: Request, @Ip() ip: string, @Res({ passthrough: true }) res: Response) {

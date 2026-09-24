@@ -1,12 +1,15 @@
 'use client';
 
+import { useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import type { ProductListItem } from '@burujan/types';
-import { ArrowUpRight, Heart, Star } from 'lucide-react';
+import { ArrowUpRight, Heart, Star, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion } from 'framer-motion';
 import { getProductImageUrl } from '@/lib/dummy-images';
+import { api } from '@/lib/api';
+import { toast } from '@/components/ui/toast';
 
 export function ProductCard({ 
   product, 
@@ -17,6 +20,8 @@ export function ProductCard({
   className?: string;
   index?: number;
 }) {
+  const [isWishlisting, setIsWishlisting] = useState(false);
+  const [isWishlisted, setIsWishlisted] = useState(false);
   const price = product.salePrice ?? product.basePrice;
   const hasDiscount = Boolean(product.salePrice && Number(product.salePrice) < Number(product.basePrice));
   const discount = hasDiscount 
@@ -27,6 +32,35 @@ export function ProductCard({
 
   const money = (value: string) => 
     new Intl.NumberFormat('en', { style: 'currency', currency: product.currency }).format(Number(value));
+
+  const handleWishlistToggle = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (isWishlisting) return;
+
+    setIsWishlisting(true);
+    try {
+      if (isWishlisted) {
+        toast.info('Item is already in your wishlist');
+      } else {
+        await api('/wishlist/items', {
+          method: 'POST',
+          body: JSON.stringify({ productId: product.id }),
+        });
+        setIsWishlisted(true);
+        toast.success(`Added ${product.name} to wishlist`);
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to update wishlist';
+      if (msg.includes('401')) {
+        toast.error('Please sign in to save items to your wishlist');
+      } else {
+        toast.error(msg);
+      }
+    } finally {
+      setIsWishlisting(false);
+    }
+  };
 
   return (
     <motion.article 
@@ -75,14 +109,20 @@ export function ProductCard({
           {/* Floating Wishlist Button */}
           <button 
             type="button"
-            aria-label="Add to wishlist"
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-            }}
-            className="absolute right-3.5 top-3.5 flex h-9 w-9 items-center justify-center rounded-full bg-white/90 text-foreground opacity-0 shadow-lg backdrop-blur-md transition-all duration-300 hover:scale-110 hover:text-accent active:scale-95 group-hover:opacity-100" 
+            aria-label={isWishlisted ? "In wishlist" : "Add to wishlist"}
+            disabled={isWishlisting}
+            onClick={handleWishlistToggle}
+            className={cn(
+              "absolute right-3.5 top-3.5 flex h-9 w-9 items-center justify-center rounded-full bg-white/90 shadow-lg backdrop-blur-md transition-all duration-300 hover:scale-110 active:scale-95 group-hover:opacity-100",
+              isWishlisted ? "text-accent opacity-100" : "text-foreground opacity-0 hover:text-accent",
+              isWishlisting && "cursor-not-allowed opacity-100"
+            )} 
           >
-            <Heart className="h-4 w-4" />
+            {isWishlisting ? (
+              <Loader2 className="h-4 w-4 animate-spin text-accent" />
+            ) : (
+              <Heart className={cn("h-4 w-4", isWishlisted && "fill-accent")} />
+            )}
           </button>
 
           {/* Quick Action Button (Slides Up on Hover) */}

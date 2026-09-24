@@ -7,7 +7,19 @@ export class WishlistService {
   constructor(private readonly prisma: PrismaService, private readonly cart: CartService) {}
 
   async get(userId: string) {
-    return this.prisma.wishlist.findUnique({ where: { userId }, include: { items: { orderBy: { createdAt: 'desc' }, include: { product: { select: { name: true, slug: true, status: true, basePrice: true, salePrice: true, currency: true, images: { where: { featured: true }, take: 1 } } }, variant: { include: { inventory: true } } } } } }) ?? { items: [] };
+    const list = await this.prisma.wishlist.findUnique({
+      where: { userId },
+      include: {
+        items: {
+          orderBy: { createdAt: 'desc' },
+          include: {
+            product: { select: { name: true, slug: true, status: true, basePrice: true, salePrice: true, currency: true, images: { where: { featured: true }, take: 1 } } },
+            variant: { include: { inventory: true } },
+          },
+        },
+      },
+    });
+    return list ?? { items: [] };
   }
 
   async add(userId: string, data: { productId: string; variantId?: string }) {

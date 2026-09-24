@@ -1,6 +1,36 @@
 export class ApiClientError extends Error { constructor(readonly status: number, readonly code: string, message: string, readonly details?: unknown) { super(message); } }
 const browserBase = process.env.NEXT_PUBLIC_API_URL ?? '/api/v1';
-export async function api<T>(path: string, options: RequestInit = {}): Promise<T> { const csrf = typeof document === 'undefined' ? undefined : document.cookie.split('; ').find((value) => value.startsWith('csrf_token='))?.split('=').slice(1).join('='); const response = await fetch(`${browserBase}${path}`, { ...options, credentials: 'include', headers: { 'content-type': 'application/json', ...(csrf ? { 'x-csrf-token': decodeURIComponent(csrf) } : {}), ...options.headers } }); if (!response.ok) { const body = await response.json().catch(() => ({})) as { code?: string; message?: string; details?: unknown }; throw new ApiClientError(response.status, body.code ?? 'REQUEST_FAILED', body.message ?? 'Request failed', body.details); } if (response.status === 204) return undefined as T; return response.json() as Promise<T>; }
+export async function api<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const csrf = typeof document === 'undefined' ? undefined : document.cookie.split('; ').find((value) => value.startsWith('csrf_token='))?.split('=').slice(1).join('=');
+  const response = await fetch(`${browserBase}${path}`, {
+    ...options,
+    credentials: 'include',
+    headers: {
+      'content-type': 'application/json',
+      ...(csrf ? { 'x-csrf-token': decodeURIComponent(csrf) } : {}),
+      ...options.headers,
+    },
+  });
+  if (!response.ok) {
+    const raw = await response.text().catch(() => '');
+    let body: { code?: string; message?: string; details?: unknown } = {};
+    try {
+      body = JSON.parse(raw);
+    } catch (err) {
+      void err;
+    }
+    throw new ApiClientError(response.status, body.code ?? 'REQUEST_FAILED', body.message ?? 'Request failed', body.details);
+  }
+  if (response.status === 204) return undefined as T;
+  const text = await response.text();
+  if (!text || !text.trim()) return ({} as T);
+  try {
+    return JSON.parse(text) as T;
+  } catch (err) {
+    void err;
+    return ({} as T);
+  }
+}
 export async function serverApi<T>(path: string, init: RequestInit = {}): Promise<T> {
   const serverBase = process.env.INTERNAL_API_URL ?? process.env.NEXT_PUBLIC_API_URL;
   if (!serverBase) throw new Error('INTERNAL_API_URL or NEXT_PUBLIC_API_URL is required for server requests');

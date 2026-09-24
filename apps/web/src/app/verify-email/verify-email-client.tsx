@@ -18,9 +18,9 @@ type Status = 'verifying' | 'success' | 'error' | 'manual';
 
 export function VerifyEmailClient() {
   const searchParams = useSearchParams();
-  const token = searchParams.get('token');
-
-  const [status, setStatus] = useState<Status>(token ? 'verifying' : 'manual');
+  
+  // Default to verifying so we don't flash the manual token form while reading params
+  const [status, setStatus] = useState<Status>('verifying');
   const [errorMessage, setErrorMessage] = useState('');
   const [manualToken, setManualToken] = useState('');
   const [isSubmittingManual, setIsSubmittingManual] = useState(false);
@@ -34,20 +34,35 @@ export function VerifyEmailClient() {
   const hasTriggeredRef = useRef(false);
 
   useEffect(() => {
-    if (!token) {
+    if (hasTriggeredRef.current) return;
+
+    // Resolve token from searchParams, window.location.search, or window.location.hash
+    let activeToken = searchParams.get('token') || searchParams.get('code');
+
+    if (!activeToken && typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      activeToken = urlParams.get('token') || urlParams.get('code');
+
+      if (!activeToken && window.location.hash) {
+        const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+        activeToken = hashParams.get('token') || hashParams.get('code');
+      }
+    }
+
+    if (!activeToken || !activeToken.trim()) {
       setStatus('manual');
       return;
     }
 
-    if (hasTriggeredRef.current) return;
     hasTriggeredRef.current = true;
+    const cleanToken = activeToken.trim();
 
     setStatus('verifying');
     setErrorMessage('');
 
     api('/auth/verify-email', {
       method: 'POST',
-      body: JSON.stringify({ token: token.trim() }),
+      body: JSON.stringify({ token: cleanToken }),
     })
       .then(() => {
         setStatus('success');
@@ -60,7 +75,7 @@ export function VerifyEmailClient() {
             : 'The verification link is invalid or has expired.'
         );
       });
-  }, [token]);
+  }, [searchParams]);
 
   const handleManualSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
