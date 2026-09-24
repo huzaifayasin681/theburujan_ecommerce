@@ -8,6 +8,7 @@ import { Search, ChevronRight, Sparkles, X, ArrowLeft, ArrowRight } from 'lucide
 import { cn } from '@/lib/utils';
 
 export const metadata = { title: 'Shop the Collection' };
+export const dynamic = 'force-dynamic';
 
 export default async function Shop({
   searchParams,

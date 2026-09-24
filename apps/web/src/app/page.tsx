@@ -13,6 +13,8 @@ type Brand = { id: string; name: string; slug: string; logoUrl: string | null };
 type Settings = Record<string, unknown>;
 const textSetting = (settings: Settings, key: string, fallback: string) => typeof settings[key] === 'string' && settings[key] ? String(settings[key]) : fallback;
 
+export const dynamic = 'force-dynamic';
+
 export default async function Home() {
   const [newResult, bestResult, dealResult, categoriesResult, brandsResult, settingsResult] = await Promise.allSettled([
     serverApi<Paginated<ProductListItem>>('/products?limit=8&sort=newest'), serverApi<Paginated<ProductListItem>>('/products?limit=4&sort=best-selling'), serverApi<Paginated<ProductListItem>>('/products?limit=4&discount=true&sort=price-asc'), serverApi<Category[]>('/categories'), serverApi<Brand[]>('/brands'), serverApi<Settings>('/storefront/settings'),
