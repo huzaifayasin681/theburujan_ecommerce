@@ -63,7 +63,7 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    command: ["sh", "-c", "node_modules/.bin/prisma migrate deploy --schema prisma/schema.prisma && node dist/main.js"]
+    command: ["sh", "-c", "npx prisma migrate deploy --schema prisma/schema.prisma && (node dist/src/main.js || node dist/main.js)"]
     ports:
       # Expose only to host loopback so Nginx handles public traffic
       - "127.0.0.1:4000:4000"

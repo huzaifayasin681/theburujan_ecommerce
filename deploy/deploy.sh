@@ -24,7 +24,11 @@ fi
 
 # 2. Build and launch containers
 echo "--> Building and starting Docker containers..."
-docker compose -f docker-compose.prod.yml up --build -d
+if ! docker compose -f docker-compose.prod.yml up --build -d; then
+    echo "ERROR: Docker Compose failed to start containers. Showing API and Web logs:"
+    docker compose -f docker-compose.prod.yml logs --tail=40 api web || true
+    exit 1
+fi
 
 # 3. Wait for database and API to become healthy
 echo "--> Waiting for services to reach healthy state..."
