@@ -38,7 +38,7 @@ sleep 10
 echo "--> Verifying API healthcheck..."
 max_retries=15
 counter=0
-until curl -s -f http://127.0.0.1:4000/api/v1/health > /dev/null || [ $counter -ge $max_retries ]; do
+until curl -s -f http://127.0.0.1:${HOST_API_PORT:-4005}/api/v1/health > /dev/null || [ $counter -ge $max_retries ]; do
     echo "Waiting for API to respond... ($counter/$max_retries)"
     sleep 3
     counter=$((counter + 1))
