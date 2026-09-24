@@ -61,7 +61,7 @@ export function Header() {
 
   const cartCount = cart?.items?.reduce((acc, item) => acc + (item.quantity || 0), 0) || 0;
 
-  if (pathname?.startsWith('/checkout')) return null;
+  if (pathname?.startsWith('/checkout') || pathname?.startsWith('/admin')) return null;
 
   return (
     <>

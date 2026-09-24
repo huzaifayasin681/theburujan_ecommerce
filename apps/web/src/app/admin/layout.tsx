@@ -57,16 +57,22 @@ const nav = [
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+
+  // If on /admin/login, bypass the admin dashboard shell completely
+  if (pathname === '/admin/login') {
+    return <>{children}</>;
+  }
+
   const identity = useQuery({ 
     queryKey: ['auth', 'me'], 
-    queryFn: () => api<{ user: { roles: string[]; permissions: string[] } }>('/auth/me') 
+    queryFn: () => api<{ user: { email: string; roles: string[]; permissions: string[] } }>('/auth/me') 
   });
 
   if (identity.isLoading) {
     return (
-      <main className="flex min-h-[60vh] flex-col items-center justify-center p-8">
+      <main className="flex min-h-screen w-full flex-col items-center justify-center p-8 bg-[#090d0b] text-[#f7f5f0]">
         <Loader2 className="h-8 w-8 animate-spin text-accent mb-4" />
-        <p className="text-sm font-medium text-muted-foreground tracking-wide">
+        <p className="text-xs font-bold uppercase tracking-[0.2em] text-white/60">
           Verifying administrative credentials…
         </p>
       </main>
@@ -76,20 +82,39 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const user = identity.data?.user;
   if (identity.error || !user || (!user.roles.includes('ADMIN') && !user.roles.includes('SUPER_ADMIN'))) {
     return (
-      <main className="container flex min-h-[60vh] flex-col items-center justify-center py-20 text-center">
-        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-destructive/10 text-destructive mb-6">
-          <Lock className="h-8 w-8" />
+      <main className="flex min-h-screen w-full flex-col items-center justify-center p-6 bg-[#080d0a] text-[#f7f5f0]">
+        <div className="w-full max-w-md bg-[#0f1713] border border-white/[0.08] rounded-2xl p-8 text-center shadow-2xl backdrop-blur-xl">
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-rose-500/10 text-rose-400 border border-rose-500/20 mb-6">
+            <Lock className="h-8 w-8" />
+          </div>
+          <span className="text-[10px] font-bold uppercase tracking-[0.24em] text-accent">
+            Administrative Portal
+          </span>
+          <h1 className="mt-2 font-serif text-3xl font-medium tracking-tight text-white">
+            Access Restricted
+          </h1>
+          <p className="mt-3 text-sm text-white/60 leading-relaxed">
+            {user ? (
+              <>Signed in as <strong className="text-white font-medium">{user.email}</strong>, which does not have administrator privileges.</>
+            ) : (
+              'Authentication credentials required to access the admin portal.'
+            )}
+          </p>
+          <div className="mt-8 flex flex-col gap-3">
+            <Link 
+              href="/admin/login" 
+              className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-accent px-6 py-3.5 text-xs font-bold uppercase tracking-widest text-white hover:bg-accent/90 transition shadow-lg shadow-accent/20"
+            >
+              Sign In with Administrator Account
+            </Link>
+            <Link 
+              href="/" 
+              className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-white/[0.1] bg-white/[0.04] px-6 py-3 text-xs font-bold uppercase tracking-widest text-white/70 hover:bg-white/[0.08] hover:text-white transition"
+            >
+              Return to Storefront
+            </Link>
+          </div>
         </div>
-        <h1 className="font-serif text-3xl font-medium tracking-tight">Access Restricted</h1>
-        <p className="mt-3 max-w-md text-sm text-muted-foreground leading-relaxed">
-          Your account is authenticated but does not possess the requisite administrative privileges.
-        </p>
-        <Link 
-          href="/" 
-          className="mt-8 inline-flex items-center gap-2 rounded-full bg-primary px-6 py-2.5 text-xs font-semibold tracking-wide text-primary-foreground hover:bg-primary/90 transition-all"
-        >
-          Return to Storefront
-        </Link>
       </main>
     );
   }

@@ -7,7 +7,7 @@ import { Instagram, Twitter, Facebook, ArrowUpRight, Sparkles } from 'lucide-rea
 
 export function Footer() {
   const pathname = usePathname();
-  if (pathname?.startsWith('/checkout')) return null;
+  if (pathname?.startsWith('/checkout') || pathname?.startsWith('/admin')) return null;
 
   return (
     <footer className="mt-auto bg-[#0f1612] text-[#f7f5f0] border-t border-white/[0.08]">
