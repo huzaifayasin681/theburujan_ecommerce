@@ -1,0 +1,41 @@
+name: CI
+on: [push, pull_request]
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.4
+        env: {MYSQL_ROOT_PASSWORD: root, MYSQL_DATABASE: burujan_test}
+        ports: ["3306:3306"]
+        options: --health-cmd="mysqladmin ping -h localhost -proot" --health-interval=5s --health-timeout=5s --health-retries=20
+      redis:
+        image: redis:7.4-alpine
+        ports: ["6379:6379"]
+        options: --health-cmd="redis-cli ping" --health-interval=5s --health-timeout=3s --health-retries=20
+    env:
+      DATABASE_URL: mysql://root:root@127.0.0.1:3306/burujan_test
+      REDIS_URL: redis://localhost:6379
+      JWT_ACCESS_SECRET: test-access-secret-at-least-32-characters
+      JWT_REFRESH_SECRET: test-refresh-secret-at-least-32-characters
+      CORS_ORIGINS: http://localhost:3000
+      APP_URL: http://localhost:3000
+      S3_ENDPOINT: http://localhost:9000
+      S3_REGION: us-east-1
+      S3_BUCKET: test
+      S3_ACCESS_KEY: test-access
+      S3_SECRET_KEY: test-secret
+      SMTP_HOST: localhost
+      SMTP_PORT: 2525
+      SMTP_FROM: no-reply@example.test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: 22, cache: npm}
+      - run: npm ci
+      - run: npm run db:generate
+      - run: npm run prisma:deploy -w @burujan/api
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build

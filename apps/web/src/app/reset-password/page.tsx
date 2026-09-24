@@ -1,0 +1,1 @@
+import{TokenForm}from'@/components/token-form';export default function Reset(){return <div className="container py-16"><h1 className="mb-8 text-center text-4xl font-black">Choose a new password</h1><TokenForm kind="reset"/></div>}

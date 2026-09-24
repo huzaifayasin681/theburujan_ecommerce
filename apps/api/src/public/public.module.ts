@@ -1,0 +1,1 @@
+import{Module}from'@nestjs/common';import{PublicController}from'./public.controller';import{PublicService}from'./public.service';import{JobsModule}from'../jobs/jobs.module';@Module({imports:[JobsModule],controllers:[PublicController],providers:[PublicService]})export class PublicModule{}

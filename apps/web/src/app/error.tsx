@@ -1,0 +1,1 @@
+'use client';export default function ErrorPage({error,reset}:{error:Error&{digest?:string};reset:()=>void}){return <div className="container py-24 text-center"><h1 className="text-4xl font-black">Something went wrong</h1><p className="mt-4 text-black/60">{error.message}</p><button className="button mt-8" onClick={reset}>Try again</button></div>}

@@ -1,0 +1,1 @@
+import type{ReactNode}from'react';export function PolicyPage({title,children}:{title:string;children:ReactNode}){return <article className="container max-w-3xl py-16"><h1 className="text-5xl font-black">{title}</h1><div className="mt-8 space-y-5 leading-8 text-black/70">{children}</div></article>}

@@ -1,0 +1,6 @@
+'use client';
+import Link from 'next/link';
+import { useQuery } from '@tanstack/react-query';
+import { api } from '@/lib/api';
+type Reviews = { data: { id: string; rating: number; title: string; body: string; status: string; createdAt: string; product: { name: string; slug: string } }[] };
+export function AccountReviews() { const query = useQuery({ queryKey: ['reviews', 'mine'], queryFn: () => api<Reviews>('/reviews/mine') }); if (query.isLoading) return <p className="mt-8">Loading reviews…</p>; if (query.error) return <p className="mt-8 text-red-700">{query.error.message}</p>; if (!query.data?.data.length) return <div className="card mt-8 p-10 text-center">You have not reviewed any products yet.</div>; return <div className="mt-8 grid gap-4">{query.data.data.map((review) => <article className="card p-6" key={review.id}><div className="flex justify-between gap-4"><Link className="font-bold hover:underline" href={`/products/${review.product.slug}`}>{review.product.name}</Link><span className="text-sm uppercase text-muted-foreground">{review.status}</span></div><p className="mt-2" aria-label={`${review.rating} out of 5 stars`}>{'★'.repeat(review.rating)}{'☆'.repeat(5-review.rating)}</p><h2 className="mt-3 font-semibold">{review.title}</h2><p className="mt-1 text-muted-foreground">{review.body}</p></article>)}</div>; }

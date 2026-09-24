@@ -1,0 +1,1 @@
+import{ProductAdminForm}from'@/components/product-admin-form';export default function NewProduct(){return <><p className="text-sm uppercase tracking-widest text-[#b4512d]">Catalog</p><h1 className="mt-1 text-3xl font-black">New product</h1><ProductAdminForm/></>}

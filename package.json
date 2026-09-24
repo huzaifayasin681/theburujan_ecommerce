@@ -1,0 +1,22 @@
+{
+  "name": "burujan-commerce",
+  "private": true,
+  "packageManager": "npm@10.9.2",
+  "workspaces": ["apps/*", "packages/*"],
+  "scripts": {
+    "dev": "concurrently -n api,web -c blue,green \"npm run dev -w @burujan/api\" \"npm run dev -w @burujan/web\"",
+    "build": "npm run build -w @burujan/types && npm run build -w @burujan/api && npm run build -w @burujan/web",
+    "lint": "npm run lint --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "format": "prettier --write .",
+    "db:generate": "npm run prisma:generate -w @burujan/api",
+    "db:migrate": "npm run prisma:migrate -w @burujan/api",
+    "db:seed": "npm run prisma:seed -w @burujan/api"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1",
+    "prettier": "^3.6.2",
+    "typescript": "^5.9.2"
+  }
+}

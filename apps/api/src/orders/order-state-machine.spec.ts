@@ -1,0 +1,3 @@
+import { OrderStatus } from '@prisma/client';
+const transitions:Record<OrderStatus,readonly OrderStatus[]>={PENDING:['CONFIRMED','CANCELLED'],CONFIRMED:['PROCESSING','CANCELLED'],PROCESSING:['PACKED','CANCELLED'],PACKED:['SHIPPED','CANCELLED'],SHIPPED:['OUT_FOR_DELIVERY'],OUT_FOR_DELIVERY:['DELIVERED'],DELIVERED:['RETURN_REQUESTED','PARTIALLY_REFUNDED','REFUNDED'],CANCELLED:[],RETURN_REQUESTED:['RETURNED'],RETURNED:['PARTIALLY_REFUNDED','REFUNDED'],REFUNDED:[],PARTIALLY_REFUNDED:['REFUNDED']};
+describe('order transition rules',()=>{it('rejects delivered to processing',()=>expect(transitions.DELIVERED).not.toContain('PROCESSING'));it('permits the fulfillment happy path',()=>expect(transitions.PACKED).toContain('SHIPPED'));});

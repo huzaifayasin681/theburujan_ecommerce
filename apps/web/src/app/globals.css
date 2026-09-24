@@ -1,0 +1,153 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: var(--font-sans), ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-serif: var(--font-serif), ui-serif, Georgia, Cambria, serif;
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  
+  --color-surface: var(--surface);
+  --color-surface-foreground: var(--surface-foreground);
+  
+  --color-surface-secondary: var(--surface-secondary);
+  --color-surface-secondary-foreground: var(--surface-secondary-foreground);
+  
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+
+  /* E-commerce specific */
+  --color-sale: var(--sale);
+  --color-sale-foreground: var(--sale-foreground);
+  
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-full: 9999px;
+  
+  /* Layout utilities */
+  --spacing-container: var(--container-padding);
+}
+
+@layer base {
+  :root {
+    /* Base Colors - Premium, minimal, sophisticated */
+    /* Light Mode */
+    --background: #f7f5f0; 
+    --foreground: #17201c; 
+    
+    --surface: #fffdf9;
+    --surface-foreground: #17201c;
+    
+    --surface-secondary: #ebe9e2;
+    --surface-secondary-foreground: #17201c;
+    
+    --primary: #17201c;
+    --primary-foreground: #FFFFFF;
+    
+    --secondary: #e4e7df;
+    --secondary-foreground: #17201c;
+    
+    --accent: #bd6445;
+    --accent-foreground: #FFFFFF;
+    
+    --muted: #F4F4F0;
+    --muted-foreground: #68716b;
+    
+    --border: #dfe1d8;
+    --input: #d2d8cf;
+    --ring: #bd6445;
+
+    --success: #1E6B42;
+    --success-foreground: #FFFFFF;
+    
+    --warning: #A37400;
+    --warning-foreground: #FFFFFF;
+    
+    --destructive: #BD2F2F;
+    --destructive-foreground: #FFFFFF;
+    
+    --info: #215B9D;
+    --info-foreground: #FFFFFF;
+
+    --sale: #BD2F2F;
+    --sale-foreground: #FFFFFF;
+
+    --radius: 0.75rem;
+    --container-padding: 1.5rem;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "rlig" 1, "calt" 1;
+    background-image: radial-gradient(circle at 10% 0%, rgb(189 100 69 / 0.05), transparent 28rem), radial-gradient(circle at 90% 12%, rgb(65 91 75 / 0.06), transparent 30rem);
+  }
+  ::selection { background: #bd6445; color: #fffdf9; }
+  :focus-visible { outline: 2px solid var(--ring); outline-offset: 3px; }
+}
+
+@layer components {
+  /* Retain core classes needed temporarily while we migrate */
+  .container {
+    @apply mx-auto w-full max-w-[1360px] px-5 sm:px-8 lg:px-10;
+  }
+
+  /* Temporary legacy classes */
+  .button {
+    @apply inline-flex items-center justify-center rounded-full px-5 py-3 bg-primary text-primary-foreground font-bold border-0 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 hover:-translate-y-0.5 hover:bg-primary/90 hover:shadow-lg active:translate-y-0;
+  }
+  .field {
+    @apply w-full border border-input rounded-xl px-4 py-3 bg-surface focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-all;
+  }
+  .card {
+    @apply bg-surface border border-border rounded-2xl overflow-hidden shadow-[0_10px_40px_rgb(23_32_28_/_0.04)];
+  }
+  .grid-products {
+    @apply grid grid-cols-2 gap-x-4 gap-y-10 md:grid-cols-3 md:gap-x-6 lg:grid-cols-4;
+  }
+  .eyebrow { @apply text-[0.68rem] font-bold uppercase tracking-[0.24em] text-accent; }
+  .display-title { @apply font-serif text-5xl font-medium leading-[0.98] tracking-[-0.04em] md:text-7xl; }
+  .section-title { @apply font-serif text-3xl font-medium tracking-[-0.03em] md:text-5xl; }
+  .glass { @apply border border-white/30 bg-white/60 shadow-xl backdrop-blur-xl; }
+}
+
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: 0.01ms !important; }
+}
