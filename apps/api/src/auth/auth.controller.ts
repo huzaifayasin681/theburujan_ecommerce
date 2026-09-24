@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpCode, Ip, Post, Req, Res } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Ip, Post, Query, Req, Res } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import type { Request, Response } from 'express';
 import { AuthService } from './auth.service';
@@ -25,6 +25,10 @@ export class AuthController {
   @Public() @Post('logout') @HttpCode(204) async logout(@Req() req: AuthRequest, @Res({ passthrough: true }) res: Response) { if (req.user?.sessionId) await this.auth.logout(req.user.sessionId); this.clearCookies(res); }
   @Post('logout-all') @HttpCode(204) async logoutAll(@Req() req: AuthRequest, @Res({ passthrough: true }) res: Response) { await this.auth.logoutAll(req.user.id); this.clearCookies(res); }
   @Public() @Post('verify-email') @HttpCode(204) verify(@Body('token') token: string) { return this.auth.verifyEmail(token); }
+  @Public() @Get('verify-email')
+  verifyGet(@Query('token') token: string, @Res() res: Response) {
+    return res.redirect(`/verify-email?token=${encodeURIComponent(token ?? '')}`);
+  }
   @Public() @Post('resend-verification') @HttpCode(202) @Throttle({ default: { limit: 3, ttl: 300_000 } })
   async resendVerification(@Body() body: ForgotPasswordDto) { await this.auth.resendVerification(body.email); return { message: 'If verification is needed, a message has been queued' }; }
   @Public() @Post('forgot-password') @HttpCode(202) @Throttle({ default: { limit: 3, ttl: 60_000 } }) async forgot(@Body() body: ForgotPasswordDto) { const developmentToken = await this.auth.forgotPassword(body.email); return { message: 'If that account exists, a reset message has been queued', ...(developmentToken ? { developmentToken } : {}) }; }

@@ -4,32 +4,35 @@ import { Prisma } from '@prisma/client';
 import type { Job } from 'bullmq';
 import nodemailer from 'nodemailer';
 import { PrismaService } from '../prisma/prisma.service';
-
-const templates: Record<string, (values: Record<string, string>) => { subject: string; body: string }> = {
-  verify: (values) => ({ subject: 'Verify your Burujan email', body: `Welcome to Burujan. Verify your email using this secure link: ${values.url}` }),
-  'verify-email-change': (values) => ({ subject: 'Confirm your new email address', body: `Confirm this email address using the secure link within one hour: ${values.url}\n\nIf you did not request this change, secure your account immediately.` }),
-  reset: (values) => ({ subject: 'Reset your Burujan password', body: `A password reset was requested. Use this secure link within one hour: ${values.url}\n\nIf you did not request it, you can ignore this message.` }),
-  order: (values) => ({ subject: `Order ${values.orderNumber} received`, body: `Thank you for your order ${values.orderNumber}. Track it from your Burujan account.` }),
-  'order-confirmed': (values) => ({ subject: `Order ${values.orderNumber} confirmed`, body: `Your order ${values.orderNumber} has been confirmed and is being prepared.` }),
-  'order-processing': (values) => ({ subject: `Order ${values.orderNumber} is processing`, body: `Your order ${values.orderNumber} is now being prepared.` }),
-  'order-shipped': (values) => ({ subject: `Order ${values.orderNumber} shipped`, body: `Your order ${values.orderNumber} is on its way. Tracking: ${values.trackingNumber || 'available in your account'}.` }),
-  'order-delivered': (values) => ({ subject: `Order ${values.orderNumber} delivered`, body: `Your order ${values.orderNumber} has been delivered. We hope you enjoy it.` }),
-  'order-cancelled': (values) => ({ subject: `Order ${values.orderNumber} cancelled`, body: `Your order ${values.orderNumber} was cancelled. Any eligible payment reversal will be processed separately.` }),
-  refund: (values) => ({ subject: `Refund issued for ${values.orderNumber}`, body: `A refund of ${values.amount} was issued for order ${values.orderNumber}.` }),
-  return: (values) => ({ subject: `Return update for ${values.orderNumber}`, body: `Your return request for order ${values.orderNumber} is now ${values.status}.` }),
-  newsletter: (values) => ({ subject: 'Confirm your Burujan newsletter subscription', body: `Confirm your newsletter subscription using this link: ${values.url}` }),
-  contact: (values) => ({ subject: `Contact form: ${values.subject}`, body: `A contact message was received from ${values.name} (${values.email}).\n\n${values.message}` }),
-  'contact-received': (values) => ({ subject: 'We received your message', body: `Thanks for contacting Burujan. We received your message about “${values.subject}” and will reply as soon as possible.` }),
-};
-const escapeHtml = (value: string) => value.replace(/[&<>]/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[character] ?? character);
+import { renderEmailTemplate } from './email-templates';
 
 @Processor('email')
 export class EmailProcessor extends WorkerHost {
   private readonly transport;
   private readonly from: string;
-  constructor(config: ConfigService) { super(); this.from = config.getOrThrow('SMTP_FROM'); this.transport = nodemailer.createTransport({ host: config.getOrThrow('SMTP_HOST'), port: Number(config.get('SMTP_PORT', 587)), secure: Number(config.get('SMTP_PORT', 587)) === 465, auth: config.get('SMTP_USER') ? { user: config.get('SMTP_USER'), pass: config.get('SMTP_PASSWORD') } : undefined }); }
-  async process(job: Job<{ to: string; template: string; variables: Record<string, string> }>) { const render = templates[job.data.template]; if (!render) throw new Error(`Unknown email template: ${job.data.template}`); const email = render(job.data.variables); await this.transport.sendMail({ from: this.from, to: job.data.to, subject: email.subject, text: email.body, html: `<div style="font-family:Arial;max-width:600px;margin:auto"><h1>BURUJAN</h1><p style="white-space:pre-line;line-height:1.6">${escapeHtml(email.body)}</p></div>` }); return { sent: true }; }
+  constructor(config: ConfigService) {
+    super();
+    this.from = config.getOrThrow('SMTP_FROM');
+    this.transport = nodemailer.createTransport({
+      host: config.getOrThrow('SMTP_HOST'),
+      port: Number(config.get('SMTP_PORT', 587)),
+      secure: Number(config.get('SMTP_PORT', 587)) === 465,
+      auth: config.get('SMTP_USER') ? { user: config.get('SMTP_USER'), pass: config.get('SMTP_PASSWORD') } : undefined,
+    });
+  }
+  async process(job: Job<{ to: string; template: string; variables: Record<string, string> }>) {
+    const rendered = renderEmailTemplate(job.data.template, job.data.variables);
+    await this.transport.sendMail({
+      from: this.from,
+      to: job.data.to,
+      subject: rendered.subject,
+      text: rendered.plainText,
+      html: rendered.html,
+    });
+    return { sent: true };
+  }
 }
+
 
 @Processor('maintenance')
 export class MaintenanceProcessor extends WorkerHost {

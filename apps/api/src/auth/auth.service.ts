@@ -56,7 +56,19 @@ export class AuthService {
 
   async verifyEmail(raw: string): Promise<void> {
     const record = await this.prisma.verificationToken.findUnique({ where: { tokenHash: tokenHash(raw) } });
-    if (!record || !['EMAIL_VERIFY', 'EMAIL_CHANGE'].includes(record.type) || record.usedAt || record.expiresAt <= new Date()) throw new UnauthorizedException({ code: 'TOKEN_INVALID', message: 'Verification token is invalid or expired' });
+    if (!record || !['EMAIL_VERIFY', 'EMAIL_CHANGE'].includes(record.type)) {
+      throw new UnauthorizedException({ code: 'TOKEN_INVALID', message: 'Verification token is invalid' });
+    }
+    if (record.usedAt) {
+      if (record.type === 'EMAIL_VERIFY') {
+        const user = await this.prisma.user.findUnique({ where: { id: record.userId }, select: { emailVerifiedAt: true } });
+        if (user?.emailVerifiedAt) return;
+      }
+      throw new UnauthorizedException({ code: 'TOKEN_ALREADY_USED', message: 'This verification link has already been used' });
+    }
+    if (record.expiresAt <= new Date()) {
+      throw new UnauthorizedException({ code: 'TOKEN_EXPIRED', message: 'Verification link has expired' });
+    }
     const changedEmail = record.type === 'EMAIL_CHANGE' && record.metadata && typeof record.metadata === 'object' && !Array.isArray(record.metadata) && typeof record.metadata.email === 'string' ? record.metadata.email : null;
     await this.prisma.$transaction(async (tx) => {
       if (changedEmail && await tx.user.findFirst({ where: { email: changedEmail, id: { not: record.userId } } })) throw new ConflictException({ code: 'EMAIL_EXISTS', message: 'An account with this email already exists' });
