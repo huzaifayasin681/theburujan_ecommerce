@@ -39,12 +39,14 @@ export class CheckoutService {
       });
       if (!cart?.items.length) throw new BadRequestException({ code: 'CART_EMPTY', message: 'Your cart is empty' });
       const shipping = await tx.shippingMethod.findFirst({ where: { id: input.shippingMethodId, active: true, zone: { active: true } }, include: { zone: true } });
-      const addressCountry = input.shippingAddress.country.trim().toUpperCase();
+      const rawCountry = input.shippingAddress.country.trim().toUpperCase();
+      const addressCountry = rawCountry === 'PAKISTAN' ? 'PK' : (rawCountry === 'UNITED STATES' || rawCountry === 'USA') ? 'US' : (rawCountry === 'UNITED KINGDOM' || rawCountry === 'UK') ? 'GB' : rawCountry === 'CANADA' ? 'CA' : rawCountry.length > 2 ? rawCountry.slice(0, 2) : rawCountry;
       const addressState = input.shippingAddress.state.trim().toUpperCase();
       const countries = shipping ? jsonStrings(shipping.zone.countries).map((value) => value.toUpperCase()) : [];
       const states = shipping ? jsonStrings(shipping.zone.states).map((value) => value.toUpperCase()) : [];
       const postals = shipping ? jsonStrings(shipping.zone.postalCodes) : [];
-      if (!shipping || !countries.includes(addressCountry) || (states.length > 0 && !states.includes(addressState)) || !postalMatches(input.shippingAddress.postalCode, postals)) {
+      const countryMatchesZone = countries.length === 0 || countries.includes('*') || countries.includes(addressCountry) || countries.includes(rawCountry);
+      if (!shipping || !countryMatchesZone || (states.length > 0 && !states.includes(addressState)) || !postalMatches(input.shippingAddress.postalCode, postals)) {
         throw new NotFoundException({ code: 'SHIPPING_UNAVAILABLE', message: 'Selected shipping method is unavailable for this address' });
       }
       const lineSubtotals = cart.items.map((item) => multiplyMoney(item.variant.salePrice ?? item.variant.price ?? item.product.salePrice ?? item.product.basePrice, item.quantity));
