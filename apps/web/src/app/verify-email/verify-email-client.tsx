@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useSearchParams } from 'next/navigation';
 import {
   CheckCircle2,
@@ -129,6 +130,12 @@ export function VerifyEmailClient() {
   return (
     <div className="min-h-[80vh] flex flex-col justify-center py-16 sm:px-6 lg:px-8 bg-secondary/30">
       <div className="sm:mx-auto sm:w-full sm:max-w-md px-4">
+        <div className="text-center mb-6">
+          <Link href="/" className="inline-block hover:opacity-90 transition" aria-label="The Burujan Home">
+            <Image src="/logo.png" alt="The Burujan" width={170} height={52} priority className="h-10 w-auto object-contain mx-auto" />
+          </Link>
+        </div>
+
         {/* State: Automatically Verifying */}
         {status === 'verifying' && (
           <div className="bg-surface py-10 px-6 sm:px-10 rounded-2xl border border-border shadow-sm text-center">

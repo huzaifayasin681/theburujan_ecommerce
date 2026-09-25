@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import { AuthForm } from '@/components/auth-form';
 
 export const metadata = { title: 'Sign In' };
@@ -6,7 +7,10 @@ export const metadata = { title: 'Sign In' };
 export default function Login() {
   return (
     <div className="min-h-[80vh] flex flex-col justify-center py-12 sm:px-6 lg:px-8 bg-secondary/30">
-      <div className="sm:mx-auto sm:w-full sm:max-w-md">
+      <div className="sm:mx-auto sm:w-full sm:max-w-md text-center">
+        <Link href="/" className="inline-block mx-auto mb-4 hover:opacity-90 transition" aria-label="The Burujan Home">
+          <Image src="/logo.png" alt="The Burujan" width={170} height={52} priority className="h-10 w-auto object-contain mx-auto" />
+        </Link>
         <h1 className="text-center text-3xl md:text-4xl font-extrabold tracking-tight text-foreground">
           Welcome back
         </h1>

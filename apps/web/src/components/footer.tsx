@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { NewsletterForm } from './newsletter-form';
 import { usePathname } from 'next/navigation';
 import { Instagram, Twitter, Facebook, ArrowUpRight, Sparkles } from 'lucide-react';
@@ -18,12 +19,16 @@ export function Footer() {
           <div className="lg:col-span-4 flex flex-col items-start">
             <Link 
               href="/" 
-              className="group font-serif text-3xl font-medium tracking-[-0.04em] text-white flex items-baseline"
+              className="group flex items-center transition-opacity hover:opacity-90"
+              aria-label="The Burujan Home"
             >
-              <span>burujan</span>
-              <span className="text-accent font-serif text-4xl leading-none transition-transform duration-300 group-hover:scale-125">
-                .
-              </span>
+              <Image
+                src="/logo-white.png"
+                alt="The Burujan"
+                width={170}
+                height={50}
+                className="h-10 w-auto object-contain brightness-105 transition-transform duration-300 group-hover:scale-[1.02]"
+              />
             </Link>
 
             <p className="mt-5 text-white/70 text-sm leading-relaxed max-w-sm font-light">

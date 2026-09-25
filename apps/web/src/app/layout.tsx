@@ -14,8 +14,20 @@ export const metadata: Metadata = {
   title: { default: 'Burujan — Considered goods', template: '%s | Burujan' },
   description: 'Shop considered goods for everyday life.',
   alternates: { canonical: '/' },
-  openGraph: { type: 'website', siteName: 'Burujan' },
-  twitter: { card: 'summary_large_image' },
+  openGraph: { 
+    type: 'website', 
+    siteName: 'Burujan',
+    images: [{ url: '/theburujan.png', width: 1536, height: 1024, alt: 'The Burujan' }],
+  },
+  twitter: { 
+    card: 'summary_large_image',
+    images: ['/theburujan.png'],
+  },
+  icons: {
+    icon: '/favicon.ico',
+    shortcut: '/favicon.ico',
+    apple: '/apple-touch-icon.png',
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

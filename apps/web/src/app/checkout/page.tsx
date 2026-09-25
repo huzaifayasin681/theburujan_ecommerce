@@ -102,8 +102,8 @@ export default function Checkout() {
       {/* Luxury Minimal Checkout Header */}
       <header className="border-b border-border/80 bg-surface/80 backdrop-blur-xl py-5 sticky top-0 z-30">
         <div className="container flex items-center justify-between">
-          <Link href="/" className="font-serif text-2xl font-normal tracking-tight">
-            burujan<span className="text-accent font-serif">.</span>
+          <Link href="/" className="flex items-center transition-opacity hover:opacity-90" aria-label="The Burujan Home">
+            <Image src="/logo.png" alt="The Burujan" width={150} height={45} priority className="h-8 w-auto object-contain" />
           </Link>
 
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-medium">

@@ -85,18 +85,18 @@ function renderLuxuryHtml(options: LuxuryLayoutOptions): string {
           
           <!-- Brand Header -->
           <tr>
-            <td align="center" style="background-color: #09090b; padding: 36px 24px 30px 24px; text-align: center;">
+            <td align="center" style="background-color: #09090b; padding: 32px 24px 28px 24px; text-align: center;">
               <table role="presentation" border="0" cellspacing="0" cellpadding="0">
                 <tr>
                   <td align="center">
-                    <span style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 22px; font-weight: 800; letter-spacing: 0.28em; text-transform: uppercase; color: #ffffff; display: inline-block;">
-                      THE BURUJAN
-                    </span>
+                    <a href="https://theburujan.shop" target="_blank" style="text-decoration: none; display: inline-block;">
+                      <img src="https://theburujan.shop/logo-white.png" alt="THE BURUJAN" height="38" style="height: 38px; width: auto; max-width: 190px; display: block; border: 0; outline: none; margin: 0 auto;" />
+                    </a>
                   </td>
                 </tr>
                 <tr>
-                  <td align="center" style="padding-top: 6px;">
-                    <span style="font-size: 9px; font-weight: 600; letter-spacing: 0.22em; text-transform: uppercase; color: #a1a1aa; display: inline-block;">
+                  <td align="center" style="padding-top: 8px;">
+                    <span style="font-size: 9px; font-weight: 600; letter-spacing: 0.22em; text-transform: uppercase; color: #a1a1aa; display: inline-block; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
                       Curated Luxury &amp; Designer Atelier
                     </span>
                   </td>

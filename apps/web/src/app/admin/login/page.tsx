@@ -2,7 +2,8 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { ShieldCheck, Loader2, AlertCircle, ArrowLeft, Lock } from 'lucide-react';
+import Image from 'next/image';
+import { Loader2, AlertCircle, ArrowLeft, Lock } from 'lucide-react';
 import { api } from '@/lib/api';
 import { toast } from '@/components/ui/toast';
 
@@ -55,17 +56,24 @@ export default function AdminLoginPage() {
       <div className="relative w-full max-w-md">
         {/* Brand Header */}
         <div className="text-center mb-8">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-white/[0.04] border border-white/[0.08] shadow-inner mb-4">
-            <ShieldCheck className="h-7 w-7 text-accent" />
+          <Link href="/" className="inline-block transition-opacity hover:opacity-90 mb-4" aria-label="Storefront">
+            <Image
+              src="/logo-white.png"
+              alt="The Burujan"
+              width={200}
+              height={60}
+              priority
+              className="h-12 w-auto object-contain mx-auto brightness-110"
+            />
+          </Link>
+          <div className="inline-flex items-center gap-2 rounded-full border border-white/[0.1] bg-white/[0.04] px-3.5 py-1 mb-2">
+            <span className="h-1.5 w-1.5 rounded-full bg-accent" />
+            <span className="text-[10px] font-bold uppercase tracking-[0.24em] text-accent">
+              Administration Portal
+            </span>
           </div>
-          <span className="text-[11px] font-bold uppercase tracking-[0.24em] text-accent">
-            Atelier Management
-          </span>
-          <h1 className="mt-1 font-serif text-3xl font-medium tracking-tight text-white">
-            burujan<span className="text-accent font-serif">.</span> admin
-          </h1>
-          <p className="mt-2 text-xs text-white/50 tracking-wide">
-            Restricted administrative portal. Authorized personnel only.
+          <p className="mt-1 text-xs text-white/50 tracking-wide">
+            Restricted access. Authorized store personnel only.
           </p>
         </div>
 

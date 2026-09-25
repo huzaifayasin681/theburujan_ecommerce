@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Menu, Search, ShoppingBag, UserRound, X, Heart, ArrowUpRight, Sparkles } from 'lucide-react';
@@ -106,21 +107,34 @@ export function Header() {
             </Button>
             <Link
               href="/"
-              className="font-serif text-2xl font-normal tracking-[-0.04em] transition-opacity hover:opacity-90"
+              className="flex items-center transition-opacity hover:opacity-90 py-1"
+              aria-label="The Burujan Home"
             >
-              burujan<span className="text-accent font-serif font-light text-2xl">.</span>
+              <Image
+                src="/logo.png"
+                alt="The Burujan"
+                width={140}
+                height={45}
+                priority
+                className="h-8 w-auto object-contain"
+              />
             </Link>
           </div>
 
           {/* Desktop Brand Logo */}
           <Link
             href="/"
-            className="group hidden font-serif text-[1.85rem] font-normal tracking-[-0.04em] text-foreground transition-opacity hover:opacity-90 lg:flex lg:items-baseline"
+            className="group hidden items-center transition-opacity hover:opacity-90 lg:flex py-1"
+            aria-label="The Burujan Home"
           >
-            <span>burujan</span>
-            <span className="inline-block text-accent font-serif text-3xl font-light leading-none transition-transform duration-300 group-hover:scale-125">
-              .
-            </span>
+            <Image
+              src="/logo.png"
+              alt="The Burujan"
+              width={180}
+              height={55}
+              priority
+              className="h-10 w-auto object-contain transition-transform duration-300 group-hover:scale-[1.02]"
+            />
           </Link>
 
           {/* Desktop Nav Links with smooth sliding indicator */}

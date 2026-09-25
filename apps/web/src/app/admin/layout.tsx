@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import NextImage from 'next/image';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { useQuery } from '@tanstack/react-query';
@@ -84,8 +85,16 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     return (
       <main className="flex min-h-screen w-full flex-col items-center justify-center p-6 bg-[#080d0a] text-[#f7f5f0]">
         <div className="w-full max-w-md bg-[#0f1713] border border-white/[0.08] rounded-2xl p-8 text-center shadow-2xl backdrop-blur-xl">
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-rose-500/10 text-rose-400 border border-rose-500/20 mb-6">
-            <Lock className="h-8 w-8" />
+          <NextImage
+            src="/logo-white.png"
+            alt="The Burujan"
+            width={160}
+            height={50}
+            priority
+            className="h-10 w-auto object-contain mx-auto mb-6 brightness-105"
+          />
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-rose-500/10 text-rose-400 border border-rose-500/20 mb-5">
+            <Lock className="h-7 w-7" />
           </div>
           <span className="text-[10px] font-bold uppercase tracking-[0.24em] text-accent">
             Administrative Portal
@@ -132,9 +141,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <div className="mb-6 flex items-center justify-between border-b border-border/60 pb-5">
             <div>
               <div className="flex items-center gap-2">
-                <span className="font-serif text-lg font-semibold tracking-tight text-foreground">
-                  burujan<span className="text-accent">.</span>
-                </span>
+                <NextImage
+                  src="/logo.png"
+                  alt="The Burujan"
+                  width={110}
+                  height={34}
+                  className="h-6 w-auto object-contain"
+                />
                 <span className="rounded-full bg-accent/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-accent">
                   Admin
                 </span>
