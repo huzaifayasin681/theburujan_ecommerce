@@ -138,7 +138,41 @@ export function ProductAdminForm({ product }: { product?: EditableProduct }) {
 }
 
 function ImageEditor({ images, uploading, onUpload, onChange }: { images: ImageItem[]; uploading: boolean; onUpload: (files: FileList | null) => Promise<void>; onChange: React.Dispatch<React.SetStateAction<ImageItem[]>> }) {
-  return <section className="card p-6"><div className="flex items-center justify-between"><h3 className="text-lg font-bold">Images</h3><label className="button cursor-pointer"><Upload className="mr-2 h-4 w-4"/>{uploading ? 'Uploading…' : 'Upload'}<input className="sr-only" type="file" multiple accept="image/jpeg,image/png,image/webp" onChange={(event) => void onUpload(event.target.files)}/></label></div><div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{images.map((image, index) => <div className="rounded-lg border p-3" key={image.mediaId}><Image className="aspect-square w-full rounded object-cover" src={image.url} alt={image.altText} width={400} height={400} unoptimized/><Input className="mt-3" value={image.altText} placeholder="Alt text" onChange={(event) => onChange((items) => items.map((item, position) => position === index ? { ...item, altText: event.target.value } : item))}/><div className="mt-2 flex justify-between"><label className="text-sm"><input type="radio" checked={image.featured} onChange={() => onChange((items) => items.map((item, position) => ({ ...item, featured: position === index })))} name="featuredImage"/> Featured</label><button type="button" aria-label="Remove image" onClick={() => onChange((items) => items.filter((_, position) => position !== index).map((item, position) => ({ ...item, featured: item.featured || position === 0 })))}><Trash2 className="h-4 w-4"/></button></div></div>)}</div></section>;
+  return <section className="card p-6">
+    <div className="flex items-center justify-between">
+      <h3 className="text-lg font-bold">Images</h3>
+      <label className={`button cursor-pointer ${uploading ? 'opacity-70 pointer-events-none' : ''}`}>
+        {uploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Upload className="mr-2 h-4 w-4"/>}
+        {uploading ? 'Uploading…' : 'Upload'}
+        <input
+          className="sr-only"
+          type="file"
+          multiple
+          disabled={uploading}
+          accept="image/jpeg,image/png,image/webp"
+          onChange={(event) => {
+            const files = event.target.files;
+            void onUpload(files);
+            event.target.value = '';
+          }}
+        />
+      </label>
+    </div>
+    <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      {images.map((image, index) => <div className="rounded-lg border p-3" key={image.mediaId}>
+        <Image className="aspect-square w-full rounded object-cover" src={image.url} alt={image.altText} width={400} height={400} unoptimized/>
+        <Input className="mt-3" value={image.altText} placeholder="Alt text" onChange={(event) => onChange((items) => items.map((item, position) => position === index ? { ...item, altText: event.target.value } : item))}/>
+        <div className="mt-2 flex justify-between">
+          <label className="text-sm cursor-pointer flex items-center gap-1.5">
+            <input type="radio" checked={image.featured} onChange={() => onChange((items) => items.map((item, position) => ({ ...item, featured: position === index })))} name="featuredImage"/> Featured
+          </label>
+          <button type="button" aria-label="Remove image" className="text-muted-foreground hover:text-destructive transition-colors" onClick={() => onChange((items) => items.filter((_, position) => position !== index).map((item, position) => ({ ...item, featured: item.featured || position === 0 })))}>
+            <Trash2 className="h-4 w-4"/>
+          </button>
+        </div>
+      </div>)}
+    </div>
+  </section>;
 }
 
 function VariantEditor({ attributes, variants, onAdd, onAttribute, onRemoveAttribute, onVariant }: { attributes: AttributeItem[]; variants: VariantItem[]; onAdd: () => void; onAttribute: (index: number, patch: Partial<AttributeItem>) => void; onRemoveAttribute: (index: number) => void; onVariant: (index: number, patch: Partial<VariantItem>) => void }) {

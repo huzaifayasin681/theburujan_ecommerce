@@ -43,6 +43,8 @@ services:
       MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY}
     volumes:
       - minio-data:/data
+    ports:
+      - "127.0.0.1:${HOST_MINIO_PORT:-9005}:9000"
     networks:
       - burujan-network
 
@@ -58,6 +60,7 @@ services:
       DATABASE_URL: mysql://${MYSQL_USER:-burujan}:${MYSQL_PASSWORD}@mysql:3306/${MYSQL_DATABASE:-burujan}
       REDIS_URL: redis://redis:6379
       S3_ENDPOINT: http://minio:9000
+      S3_PUBLIC_URL: ${S3_PUBLIC_URL:-https://theburujan.shop/storage}
     depends_on:
       mysql:
         condition: service_healthy

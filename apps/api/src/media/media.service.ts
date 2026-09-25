@@ -1,10 +1,19 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException, OnModuleInit } from '@nestjs/common';
 import { MediaVisibility } from '@prisma/client';
 import { ConfigService } from '@nestjs/config';
-import { DeleteObjectCommand, GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import {
+  CreateBucketCommand,
+  DeleteObjectCommand,
+  GetObjectCommand,
+  HeadBucketCommand,
+  PutBucketPolicyCommand,
+  PutObjectCommand,
+  S3Client,
+} from '@aws-sdk/client-s3';
 import { randomUUID } from 'node:crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import type { AuthUser } from '../auth/auth.types';
+
 const signatures = [
   {
     mime: 'image/jpeg',
@@ -23,13 +32,16 @@ const signatures = [
     ext: '.webp',
   },
 ];
+
 @Injectable()
-export class MediaService {
+export class MediaService implements OnModuleInit {
+  private readonly logger = new Logger(MediaService.name);
   private readonly client: S3Client;
   private readonly bucket: string;
+
   constructor(
     private readonly prisma: PrismaService,
-    config: ConfigService,
+    private readonly config: ConfigService,
   ) {
     this.bucket = config.getOrThrow('S3_BUCKET');
     this.client = new S3Client({
@@ -42,6 +54,55 @@ export class MediaService {
       },
     });
   }
+
+  async onModuleInit() {
+    await this.ensureBucket();
+  }
+
+  async ensureBucket() {
+    try {
+      await this.client.send(new HeadBucketCommand({ Bucket: this.bucket }));
+    } catch (err: any) {
+      if (err.name === 'NotFound' || err.$metadata?.httpStatusCode === 404 || err.name === 'NoSuchBucket') {
+        this.logger.warn(`Bucket '${this.bucket}' not found. Creating bucket now...`);
+        try {
+          await this.client.send(new CreateBucketCommand({ Bucket: this.bucket }));
+          this.logger.log(`Bucket '${this.bucket}' created successfully.`);
+          await this.setBucketPublicReadPolicy();
+        } catch (createErr: any) {
+          if (createErr.name !== 'BucketAlreadyOwnedByYou' && createErr.name !== 'BucketAlreadyExists') {
+            this.logger.error(`Failed to create bucket '${this.bucket}': ${createErr.message}`);
+          }
+        }
+      }
+    }
+  }
+
+  private async setBucketPublicReadPolicy() {
+    try {
+      const policy = {
+        Version: '2012-10-17',
+        Statement: [
+          {
+            Effect: 'Allow',
+            Principal: '*',
+            Action: ['s3:GetObject'],
+            Resource: [`arn:aws:s3:::${this.bucket}/*`],
+          },
+        ],
+      };
+      await this.client.send(
+        new PutBucketPolicyCommand({
+          Bucket: this.bucket,
+          Policy: JSON.stringify(policy),
+        }),
+      );
+      this.logger.log(`Set public read policy on bucket '${this.bucket}'.`);
+    } catch (policyErr: any) {
+      this.logger.warn(`Could not set public read policy on bucket '${this.bucket}': ${policyErr.message}`);
+    }
+  }
+
   async upload(userId: string, file?: Express.Multer.File, visibility: MediaVisibility = MediaVisibility.PUBLIC) {
     if (!file)
       throw new BadRequestException({
@@ -57,19 +118,45 @@ export class MediaService {
         message: 'Only valid JPEG, PNG, and WebP images are allowed',
       });
     const key = `media/${new Date().toISOString().slice(0, 10)}/${randomUUID()}${signature.ext}`;
-    await this.client.send(
-      new PutObjectCommand({
-        Bucket: this.bucket,
-        Key: key,
-        Body: file.buffer,
-        ContentType: signature.mime,
-        CacheControl: 'public,max-age=31536000,immutable',
-      }),
-    );
+    try {
+      await this.client.send(
+        new PutObjectCommand({
+          Bucket: this.bucket,
+          Key: key,
+          Body: file.buffer,
+          ContentType: signature.mime,
+          CacheControl: 'public,max-age=31536000,immutable',
+        }),
+      );
+    } catch (err: any) {
+      if (err.name === 'NoSuchBucket') {
+        await this.ensureBucket();
+        await this.client.send(
+          new PutObjectCommand({
+            Bucket: this.bucket,
+            Key: key,
+            Body: file.buffer,
+            ContentType: signature.mime,
+            CacheControl: 'public,max-age=31536000,immutable',
+          }),
+        );
+      } else {
+        throw err;
+      }
+    }
+
+    const publicUrl = this.config.get<string>('S3_PUBLIC_URL');
     const endpoint = this.client.config.endpoint ? await this.client.config.endpoint() : null;
-    const url = endpoint
-      ? `${endpoint.protocol}//${endpoint.hostname}${endpoint.port ? `:${endpoint.port}` : ''}/${this.bucket}/${key}`
-      : key;
+    let url: string;
+    if (publicUrl) {
+      url = `${publicUrl.replace(/\/$/, '')}/${key}`;
+    } else if (endpoint && !['minio', 'localhost', '127.0.0.1'].includes(endpoint.hostname)) {
+      url = `${endpoint.protocol}//${endpoint.hostname}${endpoint.port ? `:${endpoint.port}` : ''}/${this.bucket}/${key}`;
+    } else {
+      const appUrl = (this.config.get<string>('APP_URL') || 'https://theburujan.shop').replace(/\/$/, '');
+      url = `${appUrl}/storage/${key}`;
+    }
+
     const media = await this.prisma.media.create({
       data: {
         key,
@@ -112,4 +199,14 @@ export class MediaService {
     if (!result.Body) throw new NotFoundException({ code: 'MEDIA_NOT_FOUND', message: 'Media content was not found' });
     return { media, body: Buffer.from(await result.Body.transformToByteArray()) };
   }
+  async readByKey(key: string) {
+    const media = await this.prisma.media.findFirst({ where: { key } });
+    if (!media || media.visibility === MediaVisibility.PRIVATE) {
+      throw new NotFoundException({ code: 'MEDIA_NOT_FOUND', message: 'Media was not found' });
+    }
+    const result = await this.client.send(new GetObjectCommand({ Bucket: this.bucket, Key: key }));
+    if (!result.Body) throw new NotFoundException({ code: 'MEDIA_NOT_FOUND', message: 'Media content was not found' });
+    return { mimeType: media.mimeType, body: Buffer.from(await result.Body.transformToByteArray()) };
+  }
 }
+
