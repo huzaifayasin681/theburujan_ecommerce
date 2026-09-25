@@ -147,6 +147,157 @@ export class AuthService {
   async beginTwoFactor(userId:string){const secret=newTotpSecret();const user=await this.prisma.user.update({where:{id:userId},data:{twoFactorSecret:secret,twoFactorEnabled:false},select:{email:true}});return{secret,otpauthUrl:`otpauth://totp/Burujan:${encodeURIComponent(user.email)}?secret=${secret}&issuer=Burujan&digits=6&period=30`}}
   async confirmTwoFactor(userId:string,code:string){const user=await this.prisma.user.findUniqueOrThrow({where:{id:userId},select:{twoFactorSecret:true}});if(!user.twoFactorSecret||!verifyTotp(user.twoFactorSecret,code))throw new UnauthorizedException({code:'TWO_FACTOR_INVALID',message:'Authenticator code is invalid'});const recoveryCodes=Array.from({length:10},()=>randomBytes(6).toString('hex').toUpperCase());await this.prisma.$transaction(async tx=>{await tx.twoFactorRecoveryCode.deleteMany({where:{userId}});await tx.twoFactorRecoveryCode.createMany({data:recoveryCodes.map(value=>({userId,codeHash:tokenHash(value)}))});await tx.user.update({where:{id:userId},data:{twoFactorEnabled:true}});await tx.auditLog.create({data:{actorId:userId,action:'security.2fa_enabled',resourceType:'User',resourceId:userId}})});return{recoveryCodes}}
   async disableTwoFactor(userId:string,password:string,code:string){const user=await this.prisma.user.findUniqueOrThrow({where:{id:userId}});if(!(await argon2.verify(user.passwordHash,password))||!user.twoFactorSecret||!verifyTotp(user.twoFactorSecret,code))throw new UnauthorizedException({code:'TWO_FACTOR_INVALID',message:'Password or authenticator code is invalid'});await this.prisma.$transaction([this.prisma.user.update({where:{id:userId},data:{twoFactorEnabled:false,twoFactorSecret:null}}),this.prisma.twoFactorRecoveryCode.deleteMany({where:{userId}}),this.prisma.auditLog.create({data:{actorId:userId,action:'security.2fa_disabled',resourceType:'User',resourceId:userId}})])}
+  async loginOrRegisterWithGoogle(
+    profile: { email: string; firstName: string; lastName: string; avatarUrl?: string },
+    client: ClientInfo,
+  ): Promise<TokenPair> {
+    const email = profile.email.trim().toLowerCase();
+    let user = await this.prisma.user.findUnique({
+      where: { email },
+      include: { roles: { select: { role: { select: { name: true } } } } },
+    });
+
+    if (user) {
+      if (user.status !== 'ACTIVE') {
+        throw new UnauthorizedException({ code: 'USER_INACTIVE', message: 'Account is not active' });
+      }
+      const updateData: { emailVerifiedAt?: Date; avatarUrl?: string } = {};
+      if (!user.emailVerifiedAt) updateData.emailVerifiedAt = new Date();
+      if (!user.avatarUrl && profile.avatarUrl) updateData.avatarUrl = profile.avatarUrl;
+
+      if (Object.keys(updateData).length > 0) {
+        user = await this.prisma.user.update({
+          where: { id: user.id },
+          data: updateData,
+          include: { roles: { select: { role: { select: { name: true } } } } },
+        });
+      }
+    } else {
+      const randomPass = randomBytes(32).toString('hex');
+      const passwordHash = await argon2.hash(randomPass, { type: argon2.argon2id });
+      user = await this.prisma.user.create({
+        data: {
+          email,
+          passwordHash,
+          firstName: profile.firstName || 'User',
+          lastName: profile.lastName || '',
+          avatarUrl: profile.avatarUrl || null,
+          emailVerifiedAt: new Date(),
+          roles: { create: { role: { connect: { name: 'USER' } } } },
+        },
+        include: { roles: { select: { role: { select: { name: true } } } } },
+      });
+    }
+
+    const session = await this.createSession(user.id, user.email, client);
+    const roles = user.roles.map(({ role }) => role.name);
+    return { ...session, roles };
+  }
+
+  async verifyGoogleIdToken(idToken: string): Promise<{ email: string; firstName: string; lastName: string; avatarUrl?: string }> {
+    try {
+      const res = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(idToken)}`);
+      if (!res.ok) {
+        throw new Error('Google token verification failed');
+      }
+      const data = await res.json() as {
+        email?: string;
+        email_verified?: string | boolean;
+        name?: string;
+        given_name?: string;
+        family_name?: string;
+        picture?: string;
+        aud?: string;
+      };
+
+      if (!data.email) throw new Error('Google token did not contain an email address');
+      const verified = data.email_verified === 'true' || data.email_verified === true;
+      if (!verified) throw new Error('Google email is not verified');
+
+      const expectedClientId = this.config.get<string>('GOOGLE_CLIENT_ID');
+      if (expectedClientId && data.aud && data.aud !== expectedClientId) {
+        throw new Error('Google token audience mismatch');
+      }
+
+      return {
+        email: data.email,
+        firstName: data.given_name || (data.name ? (data.name.split(' ')[0] ?? 'User') : 'User'),
+        lastName: data.family_name || (data.name ? data.name.split(' ').slice(1).join(' ') : ''),
+        avatarUrl: data.picture,
+      };
+    } catch (err: unknown) {
+      throw new UnauthorizedException({
+        code: 'GOOGLE_AUTH_FAILED',
+        message: err instanceof Error ? err.message : 'Google authentication verification failed',
+      });
+    }
+  }
+
+  async exchangeGoogleCode(
+    code: string,
+    redirectUri: string,
+  ): Promise<{ email: string; firstName: string; lastName: string; avatarUrl?: string }> {
+    const clientId = this.config.get<string>('GOOGLE_CLIENT_ID');
+    const clientSecret = this.config.get<string>('GOOGLE_CLIENT_SECRET');
+
+    if (!clientId || !clientSecret) {
+      throw new UnauthorizedException({
+        code: 'GOOGLE_NOT_CONFIGURED',
+        message: 'Google Sign-In is not configured on the server. Please set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET.',
+      });
+    }
+
+    try {
+      const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          code,
+          client_id: clientId,
+          client_secret: clientSecret,
+          redirect_uri: redirectUri,
+          grant_type: 'authorization_code',
+        }),
+      });
+
+      if (!tokenRes.ok) {
+        const errText = await tokenRes.text();
+        throw new Error(`Google token exchange failed: ${errText}`);
+      }
+
+      const tokenData = await tokenRes.json() as { access_token?: string };
+      if (!tokenData.access_token) throw new Error('No access token returned by Google');
+
+      const userRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+        headers: { Authorization: `Bearer ${tokenData.access_token}` },
+      });
+
+      if (!userRes.ok) throw new Error('Failed to retrieve user profile from Google');
+
+      const data = await userRes.json() as {
+        email?: string;
+        email_verified?: boolean;
+        given_name?: string;
+        family_name?: string;
+        name?: string;
+        picture?: string;
+      };
+
+      if (!data.email) throw new Error('Google profile did not contain an email');
+
+      return {
+        email: data.email,
+        firstName: data.given_name || (data.name ? (data.name.split(' ')[0] ?? 'User') : 'User'),
+        lastName: data.family_name || (data.name ? data.name.split(' ').slice(1).join(' ') : ''),
+        avatarUrl: data.picture,
+      };
+    } catch (err: unknown) {
+      throw new UnauthorizedException({
+        code: 'GOOGLE_AUTH_FAILED',
+        message: err instanceof Error ? err.message : 'Google authentication failed',
+      });
+    }
+  }
 
   private async createSession(userId: string, email: string, client: ClientInfo): Promise<TokenPair> {
     const id = randomUUID(); const familyId = randomUUID();

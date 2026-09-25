@@ -1,4 +1,5 @@
-import { Body, Controller, Get, HttpCode, Ip, Post, Query, Req, Res } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, HttpCode, Ip, Post, Query, Req, Res } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Throttle } from '@nestjs/throttler';
 import type { Request, Response } from 'express';
 import { AuthService } from './auth.service';
@@ -12,11 +13,90 @@ const cookieOptions = (maxAge: number) => ({ httpOnly: true, secure: process.env
 
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly auth: AuthService,private readonly cart:CartService) {}
+  constructor(
+    private readonly auth: AuthService,
+    private readonly cart: CartService,
+    private readonly config: ConfigService,
+  ) {}
   @Public() @Post('register') @Throttle({ default: { limit: 5, ttl: 60_000 } }) register(@Body() body: RegisterDto) { return this.auth.register(body); }
   @Public() @Post('login') @HttpCode(200) @Throttle({ default: { limit: 8, ttl: 60_000 } })
   async login(@Body() body: LoginDto, @Ip() ip: string, @Req() req: Request, @Res({ passthrough: true }) res: Response) {
     const tokens = await this.auth.login(body, { ip, userAgent: req.get('user-agent') });
+    await this.cart.mergeGuest(tokens.userId, (req.cookies as Record<string, string> | undefined)?.guest_cart);
+    this.setCookies(res, tokens);
+    res.clearCookie('guest_cart', { path: '/' });
+    return { expiresIn: tokens.expiresIn, roles: tokens.roles ?? [] };
+  }
+
+  @Public() @Get('google/config')
+  googleConfig() {
+    const clientId = this.config.get<string>('GOOGLE_CLIENT_ID') || null;
+    return { clientId, enabled: Boolean(clientId) };
+  }
+
+  @Public() @Get('google')
+  googleRedirect(@Query('returnTo') returnTo: string | undefined, @Res() res: Response) {
+    const clientId = this.config.get<string>('GOOGLE_CLIENT_ID');
+    const appUrl = (this.config.get<string>('APP_URL') || 'https://theburujan.shop').replace(/\/$/, '');
+    const callbackUrl = this.config.get<string>('GOOGLE_CALLBACK_URL') || `${appUrl}/api/v1/auth/google/callback`;
+
+    if (!clientId) {
+      return res.redirect(`/login?error=google_not_configured`);
+    }
+
+    const state = returnTo ? encodeURIComponent(returnTo) : '/account';
+    const googleAuthUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(callbackUrl)}&response_type=code&scope=openid%20email%20profile&access_type=offline&prompt=select_account&state=${state}`;
+    return res.redirect(googleAuthUrl);
+  }
+
+  @Public() @Get('google/callback')
+  async googleCallback(
+    @Query('code') code: string,
+    @Query('state') state: string | undefined,
+    @Ip() ip: string,
+    @Req() req: Request,
+    @Res() res: Response,
+  ) {
+    if (!code) {
+      return res.redirect(`/login?error=google_code_missing`);
+    }
+    const appUrl = (this.config.get<string>('APP_URL') || 'https://theburujan.shop').replace(/\/$/, '');
+    const callbackUrl = this.config.get<string>('GOOGLE_CALLBACK_URL') || `${appUrl}/api/v1/auth/google/callback`;
+
+    try {
+      const profile = await this.auth.exchangeGoogleCode(code, callbackUrl);
+      const tokens = await this.auth.loginOrRegisterWithGoogle(profile, { ip, userAgent: req.get('user-agent') });
+      await this.cart.mergeGuest(tokens.userId, (req.cookies as Record<string, string> | undefined)?.guest_cart);
+      this.setCookies(res, tokens);
+      res.clearCookie('guest_cart', { path: '/' });
+
+      const destination = state && state.startsWith('/') ? state : '/account';
+      return res.redirect(destination);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? encodeURIComponent(err.message) : 'google_auth_failed';
+      return res.redirect(`/login?error=${message}`);
+    }
+  }
+
+  @Public() @Post('google') @HttpCode(200)
+  async googlePost(
+    @Body() body: { credential?: string; code?: string; redirectUri?: string },
+    @Ip() ip: string,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    let profile: { email: string; firstName: string; lastName: string; avatarUrl?: string };
+    if (body.credential) {
+      profile = await this.auth.verifyGoogleIdToken(body.credential);
+    } else if (body.code) {
+      const appUrl = (this.config.get<string>('APP_URL') || 'https://theburujan.shop').replace(/\/$/, '');
+      const redirectUri = body.redirectUri || this.config.get<string>('GOOGLE_CALLBACK_URL') || `${appUrl}/api/v1/auth/google/callback`;
+      profile = await this.auth.exchangeGoogleCode(body.code, redirectUri);
+    } else {
+      throw new BadRequestException({ code: 'GOOGLE_CREDENTIAL_REQUIRED', message: 'Google credential or authorization code is required' });
+    }
+
+    const tokens = await this.auth.loginOrRegisterWithGoogle(profile, { ip, userAgent: req.get('user-agent') });
     await this.cart.mergeGuest(tokens.userId, (req.cookies as Record<string, string> | undefined)?.guest_cart);
     this.setCookies(res, tokens);
     res.clearCookie('guest_cart', { path: '/' });

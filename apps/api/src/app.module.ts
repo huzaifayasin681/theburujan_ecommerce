@@ -53,6 +53,9 @@ const envSchema = z.object({
   PAYPAL_CLIENT_SECRET: z.string().optional(),
   PAYPAL_WEBHOOK_ID: z.string().optional(),
   PAYPAL_API_URL: z.string().url().default('https://api-m.paypal.com'),
+  GOOGLE_CLIENT_ID: z.string().optional(),
+  GOOGLE_CLIENT_SECRET: z.string().optional(),
+  GOOGLE_CALLBACK_URL: z.string().optional(),
 });
 
 @Module({

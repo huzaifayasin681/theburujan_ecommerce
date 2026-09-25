@@ -15,9 +15,13 @@ import {
   LogOut, 
   Sparkles, 
   ArrowUpRight,
-  Menu
+  ArrowRight,
+  Settings,
+  Menu,
+  Loader2
 } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "@/components/ui/toast";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
@@ -117,11 +121,32 @@ export function Header() {
 
   const cartCount = cart?.items?.reduce((acc, item) => acc + (item.quantity || 0), 0) || 0;
 
-  // Real user display name & avatar
+  const queryClient = useQueryClient();
+  const [loggingOut, setLoggingOut] = useState(false);
+
+  // Real user display name, initials & avatar
   const isLoggedIn = Boolean(profile?.firstName || profile?.email);
   const displayName = profile?.firstName 
     ? `${profile.firstName} ${profile.lastName || ""}`.trim() 
     : "Sign In";
+  const initials = profile?.firstName 
+    ? `${profile.firstName.charAt(0)}${profile.lastName ? profile.lastName.charAt(0) : ''}`.toUpperCase() 
+    : 'U';
+
+  const handleLogout = async () => {
+    setLoggingOut(true);
+    try {
+      await api('/auth/logout', { method: 'POST' });
+    } catch {
+      // Idempotent
+    }
+    queryClient.setQueryData(['account', 'profile'], null);
+    queryClient.invalidateQueries();
+    setProfileOpen(false);
+    setLoggingOut(false);
+    toast.success('Signed out', 'You have been signed out successfully.');
+    window.location.href = '/';
+  };
 
   const handleSearchSubmit = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -347,11 +372,11 @@ export function Header() {
               >
                 {/* Account / User Name */}
                 <span className="hidden sm:inline text-xs sm:text-sm font-semibold tracking-tight text-stone-900 whitespace-nowrap">
-                  {displayName}
+                  {isLoggedIn ? displayName : "Sign In"}
                 </span>
 
                 {/* Avatar / User Icon */}
-                <div className="relative h-8 w-8 sm:h-9 sm:w-9 lg:h-10 lg:w-10 overflow-hidden rounded-full ring-2 ring-stone-100 shadow-sm shrink-0 bg-stone-100 flex items-center justify-center">
+                <div className="relative h-8 w-8 sm:h-9 sm:w-9 lg:h-10 lg:w-10 overflow-hidden rounded-full ring-2 ring-stone-100 shadow-xs shrink-0 bg-stone-100 flex items-center justify-center">
                   {profile?.avatarUrl ? (
                     <Image
                       src={profile.avatarUrl}
@@ -359,7 +384,12 @@ export function Header() {
                       width={40}
                       height={40}
                       className="h-full w-full object-cover"
+                      unoptimized={profile.avatarUrl.includes('unsplash.com')}
                     />
+                  ) : isLoggedIn ? (
+                    <span className="font-serif text-xs font-bold text-stone-800 select-none">
+                      {initials}
+                    </span>
                   ) : (
                     <User className="h-4 w-4 sm:h-4.5 sm:w-4.5 text-stone-700" />
                   )}
@@ -374,76 +404,169 @@ export function Header() {
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, y: 8, scale: 0.98 }}
                     transition={{ duration: 0.18, ease: "easeOut" }}
-                    className="absolute right-0 top-full mt-2.5 z-50 w-56 overflow-hidden rounded-2xl border border-stone-200/80 bg-white/95 p-2 shadow-xl backdrop-blur-xl"
+                    className="absolute right-0 top-full mt-2.5 z-50 w-64 overflow-hidden rounded-3xl border border-stone-200/90 bg-white/98 p-3 shadow-2xl backdrop-blur-xl"
                   >
-                    <div className="px-3 py-2 border-b border-stone-100">
-                      <p className="text-xs font-semibold text-stone-900 truncate">
-                        {isLoggedIn ? displayName : "Guest Visitor"}
-                      </p>
-                      <p className="text-[11px] text-stone-400 truncate">
-                        {profile?.email || "Welcome to The Burujan"}
-                      </p>
-                    </div>
+                    {isLoggedIn ? (
+                      /* Logged In Customer State */
+                      <>
+                        <div className="p-3 bg-stone-50/80 rounded-2xl border border-stone-100 mb-2">
+                          <div className="flex items-center gap-3">
+                            <div className="h-10 w-10 rounded-full overflow-hidden shrink-0 bg-stone-200 flex items-center justify-center ring-2 ring-white">
+                              {profile?.avatarUrl ? (
+                                <Image
+                                  src={profile.avatarUrl}
+                                  alt={displayName}
+                                  width={40}
+                                  height={40}
+                                  className="h-full w-full object-cover"
+                                  unoptimized={profile.avatarUrl.includes('unsplash.com')}
+                                />
+                              ) : (
+                                <span className="font-serif text-xs font-bold text-stone-800">
+                                  {initials}
+                                </span>
+                              )}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="text-xs font-bold text-stone-900 truncate">
+                                {displayName}
+                              </p>
+                              <p className="text-[11px] text-muted-foreground truncate">
+                                {profile?.email}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
 
-                    <div className="py-1">
-                      <Link
-                        href="/account"
-                        onClick={() => setProfileOpen(false)}
-                        className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-stone-700 hover:bg-stone-100 hover:text-stone-900 transition-colors"
-                      >
-                        <User className="h-4 w-4 text-stone-400" />
-                        Account Portal
-                      </Link>
+                        <div className="py-1 grid gap-0.5">
+                          <Link
+                            href="/account"
+                            onClick={() => setProfileOpen(false)}
+                            className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-stone-700 hover:bg-stone-100 hover:text-stone-950 transition-colors"
+                          >
+                            <User className="h-4 w-4 text-stone-400" />
+                            Client Dashboard
+                          </Link>
 
-                      <Link
-                        href="/account/orders"
-                        onClick={() => setProfileOpen(false)}
-                        className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-stone-700 hover:bg-stone-100 hover:text-stone-900 transition-colors"
-                      >
-                        <Package className="h-4 w-4 text-stone-400" />
-                        Orders & Tracking
-                      </Link>
+                          <Link
+                            href="/account/profile"
+                            onClick={() => setProfileOpen(false)}
+                            className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-stone-700 hover:bg-stone-100 hover:text-stone-950 transition-colors"
+                          >
+                            <Settings className="h-4 w-4 text-stone-400" />
+                            Profile & Photo
+                          </Link>
 
-                      <Link
-                        href="/wishlist"
-                        onClick={() => setProfileOpen(false)}
-                        className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-stone-700 hover:bg-stone-100 hover:text-stone-900 transition-colors"
-                      >
-                        <Heart className="h-4 w-4 text-stone-400" />
-                        Saved Wishlist
-                      </Link>
+                          <Link
+                            href="/account/orders"
+                            onClick={() => setProfileOpen(false)}
+                            className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-stone-700 hover:bg-stone-100 hover:text-stone-950 transition-colors"
+                          >
+                            <Package className="h-4 w-4 text-stone-400" />
+                            Orders & Tracking
+                          </Link>
 
-                      <Link
-                        href="/shop"
-                        onClick={() => setProfileOpen(false)}
-                        className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-stone-700 hover:bg-stone-100 hover:text-stone-900 transition-colors"
-                      >
-                        <ShoppingBag className="h-4 w-4 text-stone-400" />
-                        Shop All Pieces
-                      </Link>
-                    </div>
+                          <Link
+                            href="/wishlist"
+                            onClick={() => setProfileOpen(false)}
+                            className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-stone-700 hover:bg-stone-100 hover:text-stone-950 transition-colors"
+                          >
+                            <Heart className="h-4 w-4 text-stone-400" />
+                            Saved Wishlist
+                          </Link>
 
-                    <div className="pt-1 border-t border-stone-100">
-                      {isLoggedIn ? (
-                        <Link
-                          href="/api/v1/auth/logout"
-                          onClick={() => setProfileOpen(false)}
-                          className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50 transition-colors"
-                        >
-                          <LogOut className="h-4 w-4 text-red-500" />
-                          Sign Out
-                        </Link>
-                      ) : (
-                        <Link
-                          href="/login"
-                          onClick={() => setProfileOpen(false)}
-                          className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-stone-900 hover:bg-stone-100 transition-colors"
-                        >
-                          <User className="h-4 w-4 text-stone-700" />
-                          Sign In / Register
-                        </Link>
-                      )}
-                    </div>
+                          <Link
+                            href="/shop"
+                            onClick={() => setProfileOpen(false)}
+                            className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-stone-700 hover:bg-stone-100 hover:text-stone-950 transition-colors"
+                          >
+                            <ShoppingBag className="h-4 w-4 text-stone-400" />
+                            Shop Collection
+                          </Link>
+                        </div>
+
+                        <div className="pt-2 mt-1 border-t border-stone-100">
+                          <button
+                            type="button"
+                            onClick={handleLogout}
+                            disabled={loggingOut}
+                            className="w-full flex items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50 hover:text-red-700 transition-colors cursor-pointer text-left disabled:opacity-60"
+                          >
+                            {loggingOut ? (
+                              <Loader2 className="h-4 w-4 animate-spin text-red-500" />
+                            ) : (
+                              <LogOut className="h-4 w-4 text-red-500" />
+                            )}
+                            <span>{loggingOut ? "Signing out…" : "Sign Out"}</span>
+                          </button>
+                        </div>
+                      </>
+                    ) : (
+                      /* Guest Visitor State */
+                      <>
+                        <div className="p-3 bg-stone-50/80 rounded-2xl border border-stone-100 mb-2.5 text-center">
+                          <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-stone-500 bg-white px-2 py-0.5 rounded-full border border-stone-200/60 mb-1.5">
+                            <Sparkles className="h-2.5 w-2.5 text-accent" />
+                            Guest Visitor
+                          </span>
+                          <p className="text-xs font-semibold text-stone-900">
+                            Welcome to The Burujan
+                          </p>
+                          <p className="text-[11px] text-muted-foreground mt-0.5">
+                            Sign in to track orders & manage your wishlist
+                          </p>
+
+                          <Link
+                            href={`/login?returnTo=${encodeURIComponent(pathname || '/')}`}
+                            onClick={() => setProfileOpen(false)}
+                            className="mt-3 flex h-10 w-full items-center justify-center gap-2 rounded-full bg-stone-900 px-4 text-xs font-semibold uppercase tracking-wider text-white hover:bg-stone-800 transition-all shadow-xs"
+                          >
+                            <span>Sign In</span>
+                            <ArrowRight className="h-3.5 w-3.5" />
+                          </Link>
+
+                          <div className="mt-2 text-[11px] text-muted-foreground">
+                            New client?{" "}
+                            <Link
+                              href="/register"
+                              onClick={() => setProfileOpen(false)}
+                              className="font-semibold text-stone-900 underline hover:text-stone-700"
+                            >
+                              Register here
+                            </Link>
+                          </div>
+                        </div>
+
+                        <div className="py-1 grid gap-0.5 border-t border-stone-100">
+                          <Link
+                            href={`/login?returnTo=${encodeURIComponent('/account/orders')}`}
+                            onClick={() => setProfileOpen(false)}
+                            className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-stone-700 hover:bg-stone-100 hover:text-stone-950 transition-colors"
+                          >
+                            <Package className="h-4 w-4 text-stone-400" />
+                            Track an Order
+                          </Link>
+
+                          <Link
+                            href="/wishlist"
+                            onClick={() => setProfileOpen(false)}
+                            className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-stone-700 hover:bg-stone-100 hover:text-stone-950 transition-colors"
+                          >
+                            <Heart className="h-4 w-4 text-stone-400" />
+                            Saved Wishlist
+                          </Link>
+
+                          <Link
+                            href="/shop"
+                            onClick={() => setProfileOpen(false)}
+                            className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium text-stone-700 hover:bg-stone-100 hover:text-stone-950 transition-colors"
+                          >
+                            <ShoppingBag className="h-4 w-4 text-stone-400" />
+                            Shop Curated Pieces
+                          </Link>
+                        </div>
+                      </>
+                    )}
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -512,23 +635,118 @@ export function Header() {
 
                   <div className="my-2 border-t border-stone-100" />
 
-                  <Link
-                    href="/account"
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="flex items-center justify-between rounded-xl px-3.5 py-2.5 text-sm font-medium text-stone-800 hover:bg-stone-100 transition-colors"
-                  >
-                    <span>Your Account</span>
-                    <User className="h-4 w-4 text-stone-400" />
-                  </Link>
+                  {isLoggedIn ? (
+                    <>
+                      <div className="px-3.5 py-2.5 mb-1 flex items-center gap-3 bg-stone-50 rounded-2xl border border-stone-100">
+                        <div className="relative h-9 w-9 rounded-full overflow-hidden bg-stone-200 shrink-0 flex items-center justify-center font-serif text-xs font-bold text-stone-700">
+                          {profile?.avatarUrl ? (
+                            <Image
+                              src={profile.avatarUrl}
+                              alt={displayName}
+                              width={36}
+                              height={36}
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            <span>{initials}</span>
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-semibold text-stone-900 truncate">{displayName}</p>
+                          <p className="text-[11px] text-muted-foreground truncate">{profile?.email}</p>
+                        </div>
+                      </div>
 
-                  <Link
-                    href="/wishlist"
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="flex items-center justify-between rounded-xl px-3.5 py-2.5 text-sm font-medium text-stone-800 hover:bg-stone-100 transition-colors"
-                  >
-                    <span>Saved Wishlist</span>
-                    <Heart className="h-4 w-4 text-stone-400" />
-                  </Link>
+                      <Link
+                        href="/account"
+                        onClick={() => setMobileMenuOpen(false)}
+                        className="flex items-center justify-between rounded-xl px-3.5 py-2 text-sm font-medium text-stone-800 hover:bg-stone-100 transition-colors"
+                      >
+                        <span className="flex items-center gap-2.5">
+                          <User className="h-4 w-4 text-stone-400" />
+                          Client Dashboard
+                        </span>
+                        <ArrowUpRight className="h-4 w-4 text-stone-400" />
+                      </Link>
+
+                      <Link
+                        href="/account/orders"
+                        onClick={() => setMobileMenuOpen(false)}
+                        className="flex items-center justify-between rounded-xl px-3.5 py-2 text-sm font-medium text-stone-800 hover:bg-stone-100 transition-colors"
+                      >
+                        <span className="flex items-center gap-2.5">
+                          <Package className="h-4 w-4 text-stone-400" />
+                          Orders & Tracking
+                        </span>
+                        <ArrowUpRight className="h-4 w-4 text-stone-400" />
+                      </Link>
+
+                      <Link
+                        href="/account/profile"
+                        onClick={() => setMobileMenuOpen(false)}
+                        className="flex items-center justify-between rounded-xl px-3.5 py-2 text-sm font-medium text-stone-800 hover:bg-stone-100 transition-colors"
+                      >
+                        <span className="flex items-center gap-2.5">
+                          <Settings className="h-4 w-4 text-stone-400" />
+                          Profile & Photo
+                        </span>
+                        <ArrowUpRight className="h-4 w-4 text-stone-400" />
+                      </Link>
+
+                      <Link
+                        href="/wishlist"
+                        onClick={() => setMobileMenuOpen(false)}
+                        className="flex items-center justify-between rounded-xl px-3.5 py-2 text-sm font-medium text-stone-800 hover:bg-stone-100 transition-colors"
+                      >
+                        <span className="flex items-center gap-2.5">
+                          <Heart className="h-4 w-4 text-stone-400" />
+                          Saved Wishlist
+                        </span>
+                        <ArrowUpRight className="h-4 w-4 text-stone-400" />
+                      </Link>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setMobileMenuOpen(false);
+                          handleLogout();
+                        }}
+                        disabled={loggingOut}
+                        className="w-full mt-1 flex items-center justify-between rounded-xl px-3.5 py-2.5 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors text-left cursor-pointer disabled:opacity-60"
+                      >
+                        <span className="flex items-center gap-2.5">
+                          {loggingOut ? <Loader2 className="h-4 w-4 animate-spin text-red-500" /> : <LogOut className="h-4 w-4 text-red-500" />}
+                          {loggingOut ? "Signing out…" : "Sign Out"}
+                        </span>
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <Link
+                        href={`/login?returnTo=${encodeURIComponent(pathname || '/')}`}
+                        onClick={() => setMobileMenuOpen(false)}
+                        className="flex items-center justify-between rounded-2xl bg-stone-900 px-4 py-3 text-sm font-medium text-white hover:bg-stone-800 transition-all shadow-xs my-1"
+                      >
+                        <span className="flex items-center gap-2.5">
+                          <User className="h-4 w-4 text-stone-300" />
+                          Sign In / Register
+                        </span>
+                        <ArrowRight className="h-4 w-4" />
+                      </Link>
+
+                      <Link
+                        href="/wishlist"
+                        onClick={() => setMobileMenuOpen(false)}
+                        className="flex items-center justify-between rounded-xl px-3.5 py-2 text-sm font-medium text-stone-800 hover:bg-stone-100 transition-colors"
+                      >
+                        <span className="flex items-center gap-2.5">
+                          <Heart className="h-4 w-4 text-stone-400" />
+                          Saved Wishlist
+                        </span>
+                        <ArrowUpRight className="h-4 w-4 text-stone-400" />
+                      </Link>
+                    </>
+                  )}
                 </nav>
               </motion.div>
             </>
